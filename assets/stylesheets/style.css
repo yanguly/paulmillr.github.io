@@ -1,0 +1,395 @@
+@font-face {
+  font-family: 'Museo Sans';
+  src: url('./fonts/Museo Sans 300.otf');
+  font-style: normal;
+  font-weight: 300;
+  font-display: fallback;
+}
+
+@font-face {
+  font-family: 'Museo Sans';
+  src: url('./fonts/Museo Sans 300i.otf');
+  font-style: italic;
+  font-weight: 300;
+  font-display: fallback;
+}
+
+@font-face {
+  font-family: 'Museo Sans';
+  src: url('./fonts/Museo Sans 700.otf');
+  font-style: normal;
+  font-weight: 700;
+  font-display: fallback;
+}
+
+@font-face {
+  font-family: 'Museo Sans';
+  src: url('./fonts/Museo Sans 700i.otf');
+  font-style: italic;
+  font-weight: 700;
+  font-display: fallback;
+}
+
+body {
+  font-family: 'Museo Sans', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  margin-top: 1em;
+  color: #333;
+  font-weight: 300;
+  font-size: 18px;
+}
+
+#container {
+  width: 1000px;
+  margin: 0 auto;
+}
+
+/* Tag styles. */
+
+/** {box-sizing: border-box;}*/
+
+a,
+a:visited {
+  text-decoration: none;
+  color: #0092bf;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+abbr[title] {
+  cursor: pointer;
+}
+
+blockquote {
+  border-left: 4px solid #ddd;
+  padding: 0 15px;
+  color: #777;
+  margin: 0;
+}
+
+.highlight {
+  padding: 0 5px;
+  background-color: #f5f5f5;
+}
+
+pre {
+  font-size: 13px;
+  overflow: scroll;
+  padding: 15px;
+  color: #fff;
+  background: #000;
+}
+pre.highlight {
+  color: inherit;
+  background: inherit;
+}
+
+code {
+  font-family: 'PT Mono', 'Menlo', monospace;
+}
+
+footer {
+  text-align: center;
+}
+footer p {
+  font-size: 13px;
+  color: #333;
+}
+
+hr {
+  border-width: 1px 0 0 0;
+  border-style: dashed;
+  border-color: #bbb;
+}
+
+h1,
+h2 {
+  line-height: normal;
+}
+h1 a,
+h1 a:visited,
+h2 a,
+h2 a:visited {
+  color: inherit;
+}
+h1 {
+  font-size: 3em;
+}
+h2 {
+  font-size: 2.8em;
+  margin: 0 0 26px 0;
+}
+h3 {
+  color: #f14a29;
+}
+h1 small {
+  font-size: 0.7em;
+}
+.cell h2 {
+  color: #f14a29;
+}
+.post-content h2 {
+  font-size: 1.3em;
+}
+
+.page-title,
+header > .cell {
+  display: inline-block;
+  float: left;
+  height: 126px;
+}
+
+.page-title .name {
+  display: block;
+  width: 180px;
+  margin-top: 10px;
+}
+header > .cell {
+  width: 520px;
+  min-height: 126px;
+  margin-right: 0;
+  padding-right: 50px;
+  position: relative;
+}
+
+header > .cell > p {
+  margin: 0;
+}
+.header-links {
+  position: absolute;
+  right: 10px;
+  top: 29px;
+  width: 40px;
+}
+.header-link {
+  float: left;
+  padding-top: 5px;
+  padding-left: 5px;
+}
+.header-link-image {
+  width: 32px;
+}
+
+.author-photo {
+  height: 150px;
+  float: left;
+  margin-right: 10px;
+  position: absolute;
+  bottom: 20px;
+  right: 0;
+}
+.author-photo > img {
+  border-radius: 100px;
+}
+
+.page-title {
+  clear: both;
+  margin: 0 10px 10px 0;
+  padding: 30px;
+  font-size: 45px;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: #fff;
+  background: #0092bf;
+  position: relative;
+}
+#container > header,
+#container > #main {
+  margin-right: -10px;
+}
+.page-title {
+  width: 330px;
+}
+.cell {
+  float: left;
+  width: 980px;
+  margin: 0 10px 10px 0;
+  line-height: 1.45;
+}
+.half-cell,
+.header-cell {
+  padding: 29px;
+  border: 1px dashed #bbb;
+}
+.half-cell {
+  width: 435px;
+  height: 490px;
+  padding-top: 14px;
+}
+.full-cell {
+  /*width: 870px;*/
+  height: 315px;
+  padding: 29px;
+  border: 1px dashed #bbb;
+}
+.smaller-half-cell {
+  height: 290px;
+}
+.smaller-half-cell.first {
+  width: 540px;
+}
+.smaller-half-cell.second {
+  width: 330px;
+}
+.smaller-half-cell > h2 {
+  color: #b90a67;
+}
+.cell h1 {
+  color: #0092bf;
+}
+
+.projects {
+  padding-left: 20px;
+}
+
+.new-project-type {
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px dashed #bbb;
+}
+
+/* Post styles. */
+.post {
+  padding: 10px;
+}
+.post-list,
+.post-list > li {
+  padding-left: 0;
+  list-style: none;
+}
+.post p {
+  margin-bottom: 30px;
+}
+.post p:last-child {
+  margin-bottom: 0;
+}
+video {
+  width: 100%;
+}
+
+.post-date,
+.post-arrow {
+  color: #888;
+}
+
+.post-arrow.is-lib {
+  color: #f14a29;
+}
+
+.post-date {
+  position: relative;
+}
+.twitter-share-button {
+  position: absolute;
+  top: 2px;
+  left: 95px;
+}
+
+.post-suggest-improvement {
+  float: right;
+}
+
+.post-content img {
+  max-width: 930px;
+}
+
+.page-links {
+  min-height: 64px;
+}
+.hackernews-info {
+  position: absolute;
+  margin-right: 100px;
+}
+
+.clearfix:before,
+.clearfix:after {
+  content: ' ';
+  display: table;
+}
+.clearfix:after {
+  clear: both;
+}
+
+/* =============================================================================
+   PLACEHOLDER Media Queries for Responsive Design.
+   These override the primary ('mobile first') styles
+   Modify as content requires.
+   ========================================================================== */
+
+@media only screen and (max-width: 1000px) {
+  #container {
+    width: auto;
+    margin: 0 10px;
+  }
+  #container > header,
+  #container > #main {
+    margin-right: 0;
+  }
+  h2 {
+    font-size: 1.75em;
+  }
+  .page-title,
+  header > .cell {
+    width: auto;
+    height: auto;
+    display: block;
+    float: none;
+  }
+  .page-title {
+    margin: 0 0 10px 0;
+  }
+  .header-links {
+    float: none;
+    padding-bottom: 10px;
+  }
+  .cell,
+  .cell.nopadding {
+    float: none;
+    width: auto;
+    height: auto;
+    margin-right: 0;
+  }
+  .smaller-half-cell.first {
+    width: auto;
+  }
+  .smaller-half-cell.second {
+    width: auto;
+  }
+  .post-content img {
+    max-width: 100%;
+  }
+  .talk-wrap {
+    max-width: 650px;
+  }
+}
+
+@media only screen and (max-width: 400px) {
+  .post-suggest-improvement {
+    float: none;
+    display: block;
+  }
+  .author-photo {
+    float: none;
+    position: static;
+  }
+  .page-title {
+    padding: 10px;
+    text-align: center;
+  }
+  .page-title .name {
+    width: auto;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #ddd;
+    background-color: #2f2f31;
+  }
+
+  footer p {
+    font-size: 13px;
+    color: #666;
+  }
+}

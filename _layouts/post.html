@@ -1,0 +1,30 @@
+---
+layout: base
+---
+
+{% if page.external_link != null %}
+  You can view the post at
+  <a href="{{ page.external_link }}">{{ page.external_link }}</a>.
+{% else %}
+  <section class="cell post">
+    <h2>{{ page.title }}</h2>
+    <section class="post-date">
+      <time datetime="{{ page.date | date: "%Y-%m-%d" }}">{{ page.date | date: "%d %b %y" }}</time>
+
+      {% if page.medium != null %}<a class="post-suggest-improvement" href="{{ page.medium }}">Read on Medium</a>{% endif %}
+    </section>
+    {% if page.wip %}
+      {% if page.wip == 2 %}
+        <h3 style="color: green">This is draft (WIP). Please don't share the URL.</h3>
+      {% endif %}
+    {% endif %}
+    <section class="post-content">{{ content }}</section>
+    <div class="page-comments"></div>
+  </section>
+{% endif %}
+
+{% if page.hackernews != null %}
+  <section class="cell page-links clearfix">
+    <p class="hackernews-info">You can discuss this post at <a href="{{ page.hackernews }}">Hacker News</a>.</p>
+  </section>
+{% endif %}

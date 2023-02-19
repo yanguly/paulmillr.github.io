@@ -1,0 +1,60 @@
+---
+layout: base
+title: 'Noble cryptography'
+description: 'High-security, easily auditable set of contained cryptographic libraries and tools'
+---
+
+<section class="cell post">
+  <h2>noble</h2>
+  <section class="post-content ecc-form">
+    <strong>noble cryptography</strong> is a high-security, easily auditable set of contained cryptographic libraries and tools with following features:
+
+    <ul>
+      <li>No dependencies, tiny files</li>
+      <li>Easily auditable TypeScript code</li>
+      <li>Supported in all major browsers and stable node.js versions</li>
+      <li>All releases are signed with PGP keys</li>
+    </ul>
+
+    The idea was to: 1) improve knowledge of cryptography 2) improve supply chain security of JS ecosystem 3) provide libraries that could be used for learning, because other libs are too low-level / unfriendly to beginners.
+
+    There are 4 libraries right now, they are available on github, gitlab and NPM:
+
+    <ul>
+      <li>curves (<a href="https://github.com/paulmillr/noble-curves">GH</a>, <a href="https://gitlab.com/paulmillr/noble-curves">GL</a>, <a href="https://www.npmjs.com/package/@noble/hashes">NPM</a>): elliptic curve cryptography, including Weierstrass, Edwards, Montgomery curves, pairings, secp256k1, ed25519, ed448, p521, bn254 and others. Previously split into separate packages:
+        <ul>
+        <li>secp256k1 (<a href="https://github.com/paulmillr/noble-secp256k1">GH</a>, <a href="https://gitlab.com/paulmillr/noble-secp256k1">GL</a>, <a href="https://www.npmjs.com/package/@noble/secp256k1">NPM</a>): RFC6979 deterministic ECDSA, BIP0340 Schnorr signatures, ECDH</li>
+        <li>ed25519 (<a href="https://github.com/paulmillr/noble-ed25519">GH</a>, <a href="https://gitlab.com/paulmillr/noble-ed25519">GL</a>, <a href="https://www.npmjs.com/package/@noble/ed25519">NPM</a>): RFC8032/ZIP215 EDDSA, RFC7748 X25519, ristretto255</li>
+        <li>bls12-381 (<a href="https://github.com/paulmillr/noble-bls12-381">GH</a>, <a href="https://gitlab.com/paulmillr/noble-bls12-381">GL</a>, <a href="https://www.npmjs.com/package/@noble/bls12-381">NPM</a>): Boneh-Lynn-Shacham threshold signatures and pairings usable by zk-SNARKs</li>
+      </ul>
+      </li>
+      <li>hashes (<a href="https://github.com/paulmillr/noble-hashes">GH</a>, <a href="https://gitlab.com/paulmillr/noble-hashes">GL</a>, <a href="https://www.npmjs.com/package/@noble/hashes">NPM</a>): SHA2, SHA3, RIPEMD, BLAKE2/3, HMAC, HKDF, PBKDF2 & Scrypt</li>
+    </ul>
+
+    <h3>Brief history of Noble</h3>
+
+    <ul>
+      <li>June 2019: <a href="https://github.com/paulmillr/noble-secp256k1/commit/d544593">secp256k1</a> and <a href="https://github.com/paulmillr/noble-ed25519/commit/36ded8a">ed25519</a> have been released</li>
+      <li>Aug 2019: <a href="https://github.com/paulmillr/noble-bls12-381/commit/d25ed4d">bls12-381</a> has been released</li>
+      <li>Apr 2020: <a href="/posts/noble-secp256k1-fast-ecc/">Learning fast elliptic-curve cryptography</a> blog post went live</li>
+      <li>Apr 2021: secp256k1 <a href="https://cure53.de/pentest-report_noble-lib.pdf">audit</a> has been <a href="https://gitcoin.co/grants/2451/audit-of-noble-secp256k1-cryptographic-library">crowdfunded by community</a> with help of <a href="https://umbra.cash">Umbra.cash</a></li>
+      <li>Oct 2021: <a href="https://github.com/paulmillr/noble-hashes">hashes</a> have been released, funded by <a href="https://ethereum.org/en/">Ethereum Foundation</a></li>
+      <li>Nov 2021: noble received a grant from <a href="https://www.optimism.io">Optimism</a></li>
+      <li>Jan 2022: hashes <a href="https://cure53.de/pentest-report_hashing-libs.pdf">audit</a> has been completed, also funded by EF, with help of <a href="https://nomiclabs.io">Nomic Labs</a></li>
+      <li>Feb 2022: ed25519 <a href="https://cure53.de/pentest-report_ed25519.pdf">audit</a> has been completed</li>
+      <li>Dec 2022: <a href="https://github.com/paulmillr/noble-curves">curves</a> have been released, consolidating secp + ed + bls in one package</li>
+    </ul>
+  </section>
+  <h3>Demo 1: Elliptic curve calculator</h3>
+  <p>This is a simple form that allows to calculate elliptic curve public keys and signatures with <strong>noble</strong>. “Random” button uses <code>crypto.getRandomValues</code>, which is cryptographically secure RNG. The source code is <a href="https://github.com/paulmillr/paulmillr.github.io">available on GitHub</a>.</p>
+  <div class="ecc-calculator-container"></div>
+</section>
+
+<style>
+.ecc-calculator-container { margin-top: 1rem; }
+.curve-selector { padding-right: 1rem; }
+.curve-selector > label { padding-left: 0.25rem; }
+.curve-data code { line-break: anywhere; }
+.curve-data td:first-child { width: 5rem; }
+</style>
+<script src="main.596b64e1.js"></script>

@@ -1,0 +1,60 @@
+---
+layout: base
+---
+
+<section class="cell half-cell main-page-cell">
+  <h2>Creating</h2>
+  <ul class="projects">
+    <li><a href="./noble/"><strong>noble</strong></a> <a href="./noble/">(homepage)</a> — secure 0-dependency cryptographic libraries: <a href="https://github.com/paulmillr/noble-curves/">curves</a> (<a href="https://github.com/paulmillr/noble-secp256k1/">secp256k1</a>, <a href="https://github.com/paulmillr/noble-ed25519/">ed25519</a>, <a href="https://github.com/paulmillr/noble-bls12-381">bls12-381</a>), <a href="https://github.com/paulmillr/noble-hashes/">hashes</a></li>
+    <li>scure — audited libraries for every use case: <a href="https://github.com/paulmillr/scure-base">base</a> (base64, base32, bech58...), <a href="https://github.com/paulmillr/scure-bip32">bip32</a>, <a href="https://github.com/paulmillr/scure-bip39">bip39</a></li>
+    <li>web3 utility libraries —
+      <a href="https://github.com/ethereum/js-ethereum-cryptography">js-eth-cryptography</a>,
+      <a href="https://github.com/paulmillr/micro-eth-signer">eth-signer</a>,
+      <a href="https://github.com/paulmillr/micro-sol-signer">sol-signer</a>,
+      <a href="https://github.com/paulmillr/micro-web3">micro-web3</a>,
+      <a href="https://github.com/paulmillr/tx-tor-broadcaster">tx-tor-broadcaster</a>
+    </li>
+    <li>micro libraries —
+      <a href="https://github.com/paulmillr/ed25519-keygen">ed25519-keygen</a>,
+      <a href="https://github.com/paulmillr/micro-otp">otp</a>,
+      <a href="https://github.com/paulmillr/micro-packed">packed</a>,
+      <a href="https://github.com/paulmillr/micro-password-generator">password-generator</a>,
+      <a href="https://github.com/paulmillr/steg">steganography</a>
+    </li>
+    <li><a href="https://github.com/paulmillr/dotfiles">dotfiles</a> — colorful and robust configuration files and utilities for Mac, Linux and BSD</li>
+    <li><a href="https://github.com/paulmillr/chokidar">chokidar</a> — file watcher that was used in Visual Studio Code with over 40 million downloads per week</li>
+  </ul>
+</section>
+
+<section class="cell half-cell main-page-cell">
+  <h2>Writing</h2>
+  <ul class="post-list">
+    {% for post in site.posts %}
+    <li>
+      <time datetime="{{ post.date | date: "%Y-%m-%d" }}" class="post-date">{{ post.date | date: "%b %Y" }}</time> <span class="post-arrow{% if post.tags and post.tags contains 'libertarianism' %} is-lib{% endif %}">»</span>
+      <a {% if post.external_link != null %}target="_blank" rel="external" href="{{ post.external_link }}"{% else %}href="{{ post.url }}"{% endif %}>{{ post.title }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<!-- style="width: 940px; height: 235px" -->
+<section class="cell half-cell main-page-cell smaller-half-cell first">
+  <h2>Archiving</h2>
+  <ul class="projects">
+    <li>(2011-2021) <a href="https://github.com/brunch/brunch">brunch</a> - ancient web app builder with 50+ plugins; was used to build Uber web app in 2012</li>
+    <li>(2012-2014) <a href="https://github.com/chaplinjs/chaplin">chaplin</a> - MVC architecture on top of Backbone &amp; CoffeeScript</li>
+    <li>(2011-2014) <a href="https://github.com/paulmillr/es6-shim">es6-shim</a> - ECMAScript 6 compatibility shims for legacy JS engines</li>
+    <li>(2011) <a href="https://github.com/paulmillr/chieftain">chieftain</a> - pythonic imageboard</li>
+  </ul>
+</section>
+
+<section class="cell half-cell main-page-cell smaller-half-cell second">
+  <h2>Demoing</h2>
+  <ul class="projects">
+    <li><a href="/noble/">noble</a> - calculate secp256k1, ed25519, bls12-381 keys and signatures</li>
+    <li><a href="/demos/steg/">steg</a> - steganography library that allows to
+      encrypt and hide arbitrary data inside png images</li>
+    <!-- <li><a href="/eth-signer/">eth-signer</a> - tx / addr decoder</li> -->
+  </ul>
+</section>
