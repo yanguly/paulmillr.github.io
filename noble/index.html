@@ -38,19 +38,28 @@ description: 'High-security, easily auditable set of contained cryptographic lib
       <li>Feb 2022: ed25519 <a href="https://cure53.de/pentest-report_ed25519.pdf">audit</a> by Cure53 has been completed</li>
       <li>Dec 2022: <a href="https://github.com/paulmillr/noble-curves">curves</a> have been released, consolidating secp + ed + bls in one package</li>
       <li>Feb 2023: curves <a href="https://github.com/trailofbits/publications/blob/master/reviews/2023-01-ryanshea-noblecurveslibrary-securityreview.pdf">audit</a> by Trail of Bits has been completed, funded by Ryan Shea</li>
-      <li>Mar 2023: secp256k1 and ed25519 rewritten and became 4KB (gzipped) single-feature versions of curves</li>
+      <li>Mar 2023: secp256k1 and ed25519 have been rewritten and became 4KB (gzipped) single-feature versions of curves</li>
     </ul>
   </section>
   <h3>Demo 1: Elliptic curve calculator</h3>
   <p>This is a simple form that allows to calculate elliptic curve public keys and signatures with <strong>noble</strong>. “Random” button uses <code>crypto.getRandomValues</code>, which is cryptographically secure RNG. The source code is <a href="https://github.com/paulmillr/paulmillr.github.io">available on GitHub</a>.</p>
   <div class="ecc-calculator-container"></div>
+  <div id="app-ecc-calculator"></div>
+  <noscript>
+    <div class="noscript">
+      <p>This demo requires JavaScript to function properly.</p>
+      <p>Please enable JavaScript in your browser and reload the page.</p>
+    </div>
+  </noscript>
 </section>
-
 <style>
-.ecc-calculator-container { margin-top: 1rem; }
-.curve-selector { padding-right: 1rem; }
-.curve-selector > label { padding-left: 0.25rem; }
-.curve-data code { line-break: anywhere; }
-.curve-data td:first-child { width: 5rem; }
+  .ecc-calculator-container { margin-top: 1rem; }
+  .curve-selector { padding-right: 1rem; }
+  .curve-selector > label { padding-left: 0.25rem; }
+  .curve-data code { line-break: anywhere; }
+  .curve-data td:first-child { width: 5rem; }
+  .noscript { text-align: center; }
+  .noscript p { margin: 0.5rem 0; }
 </style>
-<script src="main.596b64e1.js"></script>
+<script src="dist/main.js"></script>
+<link rel="stylesheet" href="dist/main.css">
