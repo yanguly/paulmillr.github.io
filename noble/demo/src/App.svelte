@@ -14,7 +14,7 @@
   import Points from "./components/Points.svelte";
 
   import { privKey, message } from './stores';
-  import { KEY_32, KEY_48, KEY_57, KEY_65, curves, hashes } from "./data";
+  import { KEY_32, KEY_48, KEY_57, KEY_65, curves } from "./data";
   
   // default values for inputs
   $privKey = KEY_32;
@@ -71,7 +71,7 @@
             <label for="{`${c.type}_${title}`}">{title}</label>
           </div>
         {/each}
-        {#if c.type == 'ECDSA' }
+        {#if c.type === 'ECDSA' }
           <div class="ecc-radio">
             <input 
               on:change={handleCurveChange}
@@ -89,7 +89,7 @@
 </div>
 
 {#if isShowCustom}
-  <CustomCurveFields on:showData={showCustomCurveData} />
+  <CustomCurveFields demo={1} on:showData={showCustomCurveData} />
 {/if}
 
 {#if curve == 'ecdsa_secp256k1'}

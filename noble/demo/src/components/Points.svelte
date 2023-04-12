@@ -6,17 +6,21 @@
   import { ed25519 } from '@noble/curves/ed25519';
   import { ed448 } from '@noble/curves/ed448';
   import { bls12_381 } from '@noble/curves/bls12-381';
-  import { curves } from "./../data";
+  import { curves, defaultCustomCurveParams } from "./../data";
   import { pad, isPositiveBigInt, isNonHexStr } from './../lib/utils';
   import { onMount } from 'svelte';
-  import { getErrMsg } from './../lib/utils';
+  import { getErrMsg, createCustomCurve } from './../lib/utils';
   import PointInput from './PointInput.svelte';
+  import CurveRadioBtn from './CurveRadioBtn.svelte';
+  import CustomCurveFields from './CustomCurveFields.svelte';
+  import { customCurveErrorDemo2 } from './../stores';
 
-  // default Point
+  // default Point and Curve
   let Point = secp256k1.ProjectivePoint;
   let Curve = secp256k1;
 
-  // used Point.BASE coords for testing
+  const { a, b, p, n, h, Gx, Gy } = defaultCustomCurveParams;
+
   let a_x = '';
   let a_y = '';
   let b_x = '';
@@ -48,6 +52,7 @@
   let showPointB = true;
   let operation = 'add';
   let isScalarHex = false;
+  let isShowCustom = false;
 
   const intErrorMsg = 'number must be positive and non-floating point integer, for hex click checkbox above';
   const hexErrorMsg = 'number must be a hex number, for decimals uncheck checkbox above';
@@ -58,7 +63,7 @@
   });
 
   const handleCurveChange = (e) => {
-    const curveTitle = e.target.id.toLowerCase().split('points_')[1];
+    const curveTitle = e.detail.toLowerCase().split('points_')[1];
     switch (curveTitle) {
       case 'ecdsa_secp256k1':
         Curve = secp256k1;
@@ -92,11 +97,29 @@
         Curve = bls12_381;
         Point = bls12_381.G2.ProjectivePoint;
         break;
+      case 'custom':
+        try {
+          Curve = createCustomCurve(a, b, p, n, h, Gx, Gy);
+          Point = Curve.ProjectivePoint;
+        } catch (e) {
+          $customCurveErrorDemo2 = getErrMsg(e);
+        }
+        break;
       default:
+        Curve = secp256k1;
         Point = secp256k1.ProjectivePoint;
         break;
     }
     is_bls12_381_g2 = curveTitle === 'bls_bls12-381_g2';
+    isShowCustom = curveTitle === 'custom';
+    randomPoint('A');
+    randomPoint('B');
+    clearResults();
+  }
+
+  const showCustomCurveData = (e) => {
+    Curve = e.detail;
+    Point = Curve.ProjectivePoint;
     randomPoint('A');
     randomPoint('B');
     clearResults();
@@ -330,44 +353,48 @@
     {#if c.type !== 'Schnorr'}
       <div class="curves-list">
         <div class="curves-list__title">{c.type}</div>
+
         <div>
           {#each c.list as title, i}
             {#if title == 'bls12-381'}
               {#each c.options as o}
-                <div class="ecc-radio">
-                  <input 
-                    on:change={handleCurveChange}
-                    type="radio"
-                    name="points_curve" 
-                    value="points_{title}_{o}"
-                    id="points_{`${c.type}_${title}_${o}`}"
-                  />
-                  <label for="points_{`${c.type}_${title}_${o}`}">
-                    {title} - {o}
-                  </label>
-                </div>
+                <CurveRadioBtn 
+                  on:change={handleCurveChange} 
+                  name="points_curve" 
+                  value="points_{`${c.type}_${title}_${o}`}" 
+                  title={`${title} - ${o}`}
+                />
               {/each}
             {:else}
               <div class="ecc-radio">
-                <input 
-                  on:change={handleCurveChange}
-                  type="radio"
+                <CurveRadioBtn 
+                  on:change={handleCurveChange} 
                   name="points_curve" 
-                  value="points_{title}"
-                  id="points_{`${c.type}_${title}`}"
+                  value="points_{`${c.type}_${title}`}" 
                   checked={c.type == 'ECDSA' && i == 0}
+                  title={title}
                 />
-                <label for="points_{`${c.type}_${title}`}">
-                  {title}
-                </label>
               </div>
             {/if}
           {/each}
         </div>
+        
+        {#if c.type === 'ECDSA'}
+          <CurveRadioBtn 
+            on:change={handleCurveChange} 
+            name="points_curve" 
+            value="points_custom" 
+            title='create curve'
+          />
+        {/if}
       </div>
     {/if}
   {/each}
 </div>
+
+{#if isShowCustom}
+  <CustomCurveFields demo={2} on:showData={showCustomCurveData} />
+{/if}
 
 <div class="fields-block">
   <div class="point-header">

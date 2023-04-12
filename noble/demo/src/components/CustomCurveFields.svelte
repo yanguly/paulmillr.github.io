@@ -1,26 +1,25 @@
 <script>
   import { createEventDispatcher } from 'svelte';
-  import { Fp as Field } from '@noble/curves/abstract/modular';
-  import { createCurve } from '@noble/curves/_shortw_utils';
   import { mod } from '@noble/curves/abstract/modular';
-  import { sha256 } from '@noble/hashes/sha256';
-  import { err } from '../data';
-  import { customCurveError } from '../stores';
-  import { getErrMsg, isPositiveBigInt, isBigInt } from '../lib/utils';
+  import { err, defaultCustomCurveParams } from '../data';
+  import { customCurveErrorDemo1, customCurveErrorDemo2 } from '../stores';
+  import { getErrMsg, isPositiveBigInt, isBigInt, createCustomCurve } from '../lib/utils';
+
+  export let demo;
 
   const dispatch = createEventDispatcher();
 
   let error = '';
-  $: error = $customCurveError;
+  $: if (demo == 1) {
+    error = $customCurveErrorDemo1;
+  }
+  $: if (demo == 2) {
+    error = $customCurveErrorDemo2;
+  }
 
-  // default values (taken from P256 and converted with BigInt(value))
-  let a = -3n;
-  let b = 41058363725152142129326129780047268409114441015993725554835256314039467401291n;
-  let p = 115792089210356248762697446949407573530086143415290314195533631308867097853951n;
-  let n = 115792089210356248762697446949407573529996955224135760342422259061068512044369n;
-  let h = 1n;
-  const Gx = BigInt('0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296');
-  const Gy = BigInt('0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5');
+  // default values taken from P256
+  let { a, b, p, n, h } = defaultCustomCurveParams;
+  const { Gx, Gy } = defaultCustomCurveParams;
 
   let aErr = '';
   let bErr = '';
@@ -39,7 +38,7 @@
 
   $: isErr = aErr.length || bErr.length || pErr.length || nErr.length || hErr.length;
 
-  const createCustomCurve = () => {
+  const handleCreateCustomCurve = () => {
     if (isErr) return;
 
     a = BigInt(a);
@@ -56,27 +55,7 @@
 
     let curve;
     try {
-      // field over which we do calculations: P
-      const Fp = Field(p);  
-      const CURVE_A = Fp.create(a);
-      const CURVE_B = b;
-      
-      curve = createCurve(
-        {
-          // Params: a, b
-          a: CURVE_A,
-          b: CURVE_B,
-          Fp,
-          // Curve order, total count of valid points in the field
-          n: n,
-          // Base point (x, y) aka generator point
-          Gx: Gx,
-          Gy: Gy,
-          h: h,
-          lowS: false,
-        },
-        sha256
-      );
+      curve = createCustomCurve(a, b, p, n, h, Gx, Gy);
     } catch (e) {
       error = getErrMsg(e);
       return;
@@ -152,9 +131,12 @@
     {error}
   </div>
   
-  <button class="button" on:click={createCustomCurve}>
+  <button class="button" on:click={handleCreateCustomCurve}>
     Create curve
   </button>
+  {#if demo == 2}
+    <small class="create-note">(random coordinates for points will be generated)</small>
+  {/if}
 </div>
 
 <style>
@@ -203,5 +185,17 @@
 
   .curve-desc__coords :first-child {
     margin-bottom: 5px;
+  }
+
+  .create-note {
+    display: block;
+    margin-top: 5px;
+  }
+
+  @media (min-width: 480px) {
+    .create-note {
+      display: inline;
+      margin: 0;
+    }
   }
 </style>

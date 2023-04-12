@@ -4,7 +4,7 @@
   import { bytesToHex } from '@noble/hashes/utils';
   import { pad, getErrMsg } from '../../lib/utils';
   import { err } from '../../data';
-  import { customCurveError, message } from '../../stores';
+  import { customCurveErrorDemo1, message } from '../../stores';
   import SignatureHashList from '../SignatureHashList.svelte';
   import HashRadioBtn from '../HashRadioBtn.svelte';
   import Message from '../Message.svelte';
@@ -45,7 +45,7 @@
         msgHashHex = bytesToHex(msgHash);
       }
     } catch (e) {
-      $customCurveError = getErrMsg(e);
+      $customCurveErrorDemo1 = getErrMsg(e);
     }
   }
 
@@ -96,6 +96,7 @@
     color: red;
     font-weight: bold;
     font-size: 16px;
-    margin-top: 3px;
+    margin-top: -10px;
+    margin-bottom: 10px;
   }
 </style>
