@@ -105,12 +105,6 @@ function alphabet(alphabet) {
     };
 }
 class Bitmap {
-    constructor(size, data) {
-        const { height, width } = Bitmap.size(size);
-        this.data = data || Array.from({ length: height }, () => fillArr$1(width, undefined));
-        this.height = height;
-        this.width = width;
-    }
     static size(size, limit) {
         if (typeof size === 'number')
             size = { height: size, width: size };
@@ -152,6 +146,12 @@ class Bitmap {
         if (!width)
             width = 0;
         return new Bitmap({ height, width }, data);
+    }
+    constructor(size, data) {
+        const { height, width } = Bitmap.size(size);
+        this.data = data || Array.from({ length: height }, () => fillArr$1(width, undefined));
+        this.height = height;
+        this.width = width;
     }
     point(p) {
         return this.data[p.y][p.x];
@@ -284,10 +284,10 @@ class Bitmap {
         return this.data.map((i) => i.map((j) => (j ? darkBG : whiteBG)).join('')).join('\n');
     }
     toSVG() {
-        let out = `<svg xmlns:svg="http://www.w3.org/2000/svg" width="${this.width}" height="${this.height}" version="1.1" xmlns="http://www.w3.org/2000/svg">`;
+        let out = `<svg xmlns:svg="http://www.w3.org/2000/svg" viewBox="0 0 ${this.width} ${this.height}" version="1.1" xmlns="http://www.w3.org/2000/svg">`;
         this.rectRead(0, Infinity, ({ x, y }, val) => {
             if (val)
-                out += `<svg:rect x = "${x}" y = "${y}" width="1" height="1" />`;
+                out += `<rect x="${x}" y="${y}" width="1" height="1" />`;
         });
         out += '</svg>';
         return out;
@@ -548,7 +548,6 @@ const GF = {
             [smaller, larger] = [larger, smaller];
         let sumDiff = fillArr$1(larger.length, 0);
         let lengthDiff = larger.length - smaller.length;
-        // Copy high-order terms only found in higher-degree polynomial's coefficients
         let s = larger.slice(0, lengthDiff);
         for (let i = 0; i < s.length; i++)
             sumDiff[i] = s[i];
@@ -619,13 +618,6 @@ const GF = {
             throw new Error('sigmaTilde(0) was zero');
         const inverse = GF.inv(sigmaTildeAtZero);
         return [GF.mulPolyScalar(t, inverse), GF.mulPolyScalar(r, inverse)];
-    },
-    // Main point of encoding
-    encode(msg, sym) {
-        const d = GF.divisorPoly(sym);
-        const pol = Array.from(msg);
-        pol.push(...d.slice(0, -1).fill(0));
-        return Uint8Array.from(GF.remainderPoly(pol, d));
     },
 };
 function RS(eccWords) {
