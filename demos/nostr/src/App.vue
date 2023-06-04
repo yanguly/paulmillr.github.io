@@ -607,6 +607,8 @@
       After signature, they are sent to a <em>relay</em>, and re-transmitted to other relays.
       This achieves censorship resistance: even if a relay blocks a user,
       it's always possible to user a different relay, or set up your own.
+      You can always check if some text was actually written by a user.
+      If a relay was to tamper with a message, it would invalidate its signature.
       With the app, you can:
 
       <ul>
