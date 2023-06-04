@@ -603,13 +603,13 @@
     </p>
 
     <p>
-      Every message is signed by user's <em>private key</em>
+      Traditional social networks can supress certain posts or users.
+      No nostr, every message is signed by user's <em>private key</em>
       and broadcasted to <em>relays</em>.
-      Messages are tamper-resistant and no one can edit them:
-      the signature will become invalid.
-      If a relay blocks a user, it is always possible to use a different one,
-      or create a personal relay.
-      This achieves censorship-resistance.
+      Messages are tamper-resistant: no one can edit them,
+      or the signature will become invalid.
+      Users can't be blocked: even if a relay blocks someone, it's always
+      possible to switch to a different one, or create up a personal relay.
       With the app, you can:
       <ul>
         <li><em>Connect</em> and see relay's global feed.</li>
