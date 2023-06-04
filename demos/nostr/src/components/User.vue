@@ -257,7 +257,7 @@
     </label>
     <div class="field-elements">
       <input @input="handleInputNpub" v-model="npub" class="pubkey-input" id="user_public_key" type="text" placeholder="npub..." />
-      <button @click="handleGetUserInfo" class="get-user-btn">Fetch</button>
+      <button @click="handleGetUserInfo" class="get-user-btn">Search</button>
     </div>
     <div class="error">
       {{ pubKeyError }}

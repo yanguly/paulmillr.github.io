@@ -610,15 +610,16 @@
       or the signature will become invalid.
       <strong>Users can't be blocked</strong>: even if a relay blocks someone, it's always
       possible to switch to a different one, or create up a personal relay.
-      With the app, you can:
+    </p>
+
+    <p>
+      The app is available at <a href="https://nostr.spa">nostr.spa</a>. You can:
       <ul>
         <li><em>Connect</em> and see relay's global feed.</li>
         <li><em>Post</em> new messages to the relay.</li>
         <li><em>Broadcast</em> a pre-signed message by using Broadcast tab. No need to enter private key anywhere.</li>
-        <li><em>Fetch</em> information about a user or an event.</li>
+        <li><em>Search</em> information about a user or an event.</li>
       </ul>
-
-      The app is available at <a href="https://nostr.spa">nostr.spa</a>.
     </p>
 
     <p>
