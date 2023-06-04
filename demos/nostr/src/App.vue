@@ -473,7 +473,7 @@
       v-on:click="activeTab = 3; updateUrlHash('message')"
       :class="['tabs__item', { 'tabs__item_active': activeTab === 3 }]"
     >
-      Broadcast event
+      Broadcast
     </span>
     <span
       v-on:click="activeTab = 5; updateUrlHash('help')"
@@ -590,7 +590,7 @@
   </div>
 
   <div v-if="activeTab === 5" class="">
-    <h3>Tiny privacy-friendly nostr app</h3>
+    <h3>Slightly Private App</h3>
 
     <p>
       <a href="https://nostr.com">nostr</a> is public, censorship-resistant social network.
@@ -603,8 +603,10 @@
     </p>
 
     <p>
-      Every message is signed in tamper-resistant way by user's <em>private key</em>
+      Every message is signed by user's <em>private key</em>
       and broadcasted to <em>relays</em>.
+      Messages are tamper-resistant and no one can edit them:
+      the signature will become invalid.
       If a relay blocks a user, it is always possible to use a different one,
       or create a personal relay.
       This achieves censorship-resistance.
@@ -616,7 +618,7 @@
         <li><em>Fetch</em> information about a user or an event.</li>
       </ul>
 
-      The app is available at memorable URL <a href="https://nostr.spa">nostr.spa</a>.
+      The app is available at <a href="https://nostr.spa">nostr.spa</a>.
     </p>
 
     <p>
