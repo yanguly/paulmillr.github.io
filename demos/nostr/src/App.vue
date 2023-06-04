@@ -603,14 +603,12 @@
     </p>
 
     <p>
-      Every message is signed by user's <em>private key</em>.
-      After signature, they are sent to a <em>relay</em>, and re-transmitted to other relays.
-      This achieves censorship resistance: even if a relay blocks a user,
-      it's always possible to user a different relay, or set up your own.
-      You can always check if some text was actually written by a user.
-      If a relay was to tamper with a message, it would invalidate its signature.
+      Every message is signed in tamper-resistant way by user's <em>private key</em>
+      and broadcasted to <em>relays</em>.
+      If a relay blocks a user, it is always possible to use a different one,
+      or create a personal relay.
+      This achieves censorship-resistance.
       With the app, you can:
-
       <ul>
         <li><em>Connect</em> and see relay's global feed.</li>
         <li><em>Post</em> new messages to the relay.</li>
