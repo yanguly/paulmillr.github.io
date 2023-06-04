@@ -467,7 +467,7 @@
       v-on:click="handleClickUserTab()"
       :class="['tabs__item', { 'tabs__item_active': activeTab === 2 }]"
     >
-      Profile info
+      Search
     </span>
     <span
       v-on:click="activeTab = 3; updateUrlHash('message')"
@@ -598,7 +598,7 @@
 
       <ol>
         <li>Select a relay from the list, or specify a <a href="https://nostr.watch/" target="_blank">custom URL</a></li>
-        <li><em>Optionally</em>, enter your private key, to create new messages</li>
+        <li><em>Optionally</em>, set your private key, to create new messages</li>
       </ol>
     </p>
 
@@ -623,7 +623,6 @@
 
     <p>
       <h3>Privacy policy</h3>
-
       <ul>
         <li>No tracking from our end</li>
         <li>Private keys are not sent anywhere. They are stored in RAM of your device</li>
