@@ -4,4 +4,4 @@ url: https://paulmillr.com
 permalink: /posts/:title/
 markdown: kramdown
 include: [".well-known"]
-exclude: ["noble/demo-ecc", "Makefile", "README.md"]
+exclude: ["demos/nostr/node_modules", "demos/nostr-2", "demos/qr/node_modules", "noble/demo-ecc", "Makefile", "README.md"]
