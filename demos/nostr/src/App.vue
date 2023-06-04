@@ -593,7 +593,7 @@
     <h3>Tiny privacy-friendly nostr app</h3>
 
     <p>
-      nostr is public, censorship-resistant social network.
+      <a href="https://nostr.com">nostr</a> is public, censorship-resistant social network.
       It's simple:
 
       <ol>
@@ -615,6 +615,8 @@
         <li><em>Broadcast</em> a pre-signed message by using Broadcast tab. No need to enter private key anywhere.</li>
         <li><em>Fetch</em> information about a user or an event.</li>
       </ul>
+
+      The app is available at memorable URL <a href="https://nostr.spa">nostr.spa</a>.
     </p>
 
     <p>
