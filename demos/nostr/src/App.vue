@@ -617,7 +617,7 @@
       <ul>
         <li><em>Connect</em> and see relay's global feed.</li>
         <li><em>Post</em> new messages to the relay.</li>
-        <li><em>Broadcast</em> a pre-signed message by using Broadcast tab. No need to enter private key anywhere.</li>
+        <li><em>Broadcast</em> a pre-signed message. No need to enter private key anywhere.</li>
         <li><em>Search</em> information about a user or an event.</li>
       </ul>
     </p>
