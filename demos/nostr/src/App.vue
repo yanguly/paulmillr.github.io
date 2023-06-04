@@ -597,13 +597,13 @@
       It's simple:
 
       <ol>
-        <li>Select one of relays, or provide a <a href="https://nostr.watch/" target="_blank">custom URL</a></li>
+        <li>Select a relay from the list, or specify a <a href="https://nostr.watch/" target="_blank">custom URL</a></li>
         <li><em>Optionally</em>, enter your private key, to create new messages</li>
       </ol>
     </p>
 
     <p>
-      Traditional social networks can supress certain posts or users.
+      Traditional social networks can suppress certain posts or users.
       In nostr, every message is signed by user's <em>private key</em>
       and broadcasted to <em>relays</em>.
       <strong>Messages are tamper-resistant</strong>: no one can edit them,
