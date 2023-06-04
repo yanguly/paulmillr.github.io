@@ -613,7 +613,7 @@
     </p>
 
     <p>
-      The app is available at <a href="https://nostr.spa">nostr.spa</a>. You can:
+      The app is available at <a href="http://nostr.spa">nostr.spa</a>. You can:
       <ul>
         <li><em>Connect</em> and see relay's global feed.</li>
         <li><em>Post</em> new messages to the relay.</li>
