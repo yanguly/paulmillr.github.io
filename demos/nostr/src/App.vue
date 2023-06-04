@@ -598,7 +598,7 @@
 
       <ol>
         <li>Select one of relays, or provide a <a href="https://nostr.watch/" target="_blank">custom URL</a></li>
-        <li><em>Optionally</em>, enter your private key, to be able to create new messages. Private key is stored only until you refresh the page and is never sent anywhere</li>
+        <li><em>Optionally</em>, enter your private key, to create new messages</li>
       </ol>
     </p>
 
@@ -626,6 +626,7 @@
 
       <ul>
         <li>No tracking from our end</li>
+        <li>Private keys are not sent anywhere. They are stored in RAM of your device</li>
         <li>Relay will see your ip+browser after you click <em>Connect</em> button</li>
         <li>GitHub will see ip+browser of anyone who's using the app, because it's hosted on GitHub Pages. They won't see any nostr-specific interactions you will make</li>
         <li><em>Show avatars</em> feature will leak your ip+browser to random people on the internet. Since there are no centralized servers in nostr, every user can specify their own URL for avatar hosting. Meaning, users can control the hosting webservers and see logs</li>
