@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { onBeforeMount, ref } from 'vue'
+  import { onBeforeMount, ref, nextTick } from 'vue'
   import {
     relayInit,
     getPublicKey,
@@ -15,6 +15,7 @@
   import type { EventWithAuthor } from './types'
   import User from './components/User.vue'
   import RelayFeed from './components/RelayFeed.vue'
+  import ShowImagesCheckbox from './components/ShowImagesCheckbox.vue'
   import { initialUrlNpub, cachedUrlNpub } from './store'
 
   const currentPath = ref(window.location.hash)
@@ -32,6 +33,9 @@
   let currentRelay: Relay;
   let curInterval: number;
 
+  const isRemembered = localStorage.getItem('rememberMe') === 'true'
+  const initialNsec = isRemembered ? localStorage.getItem('privkey') : ''
+
   // events in feed
   const events = ref<EventWithAuthor[]>([])
   const eventsIds = new Set()
@@ -40,7 +44,7 @@
   const customRelay = ref('')
   const selectedRelay = ref(DEFAULT_RELAYS[0])
   const connectedRelay = ref('')
-  const nsec = ref('')
+  const nsec = ref(initialNsec || '')
   const message = ref('')
   const pubKey = ref('')
   const signedJson = ref('')
@@ -55,27 +59,30 @@
   const eventsLog = ref<string[]>([]);
 
   const showImages = ref(false)
+  const rememberMe = ref(isRemembered)
   const showCustomRelayUrl = ref(false)
   const showConnectBtn = ref(true)
   const showConnectingToRelay = ref(false)
 
-  // 1 - feed, 2 - user, 3 - signed message, 4 - log
-  const activeTab = ref(1)
+  // 1 - feed, 2 - user, 3 - signed message, 4 - log, 5 - help
+  const activeTab = ref(5)
 
   const wsError = ref('')
   const msgErr = ref('')
   const jsonErr = ref('')
 
-  const updateUrlHash = (hash: string) => {
-    window.location.hash = hash
-  }
+  const privacyEl = ref<null | HTMLElement>(null)
 
   // runs once on app start
-  onBeforeMount(() => {
+  onBeforeMount(async () => {
     const hash = currentPath.value
     if (!hash.length) return
 
-    if (hash.indexOf('user') > -1) {
+    if (hashContains('feed')) {
+      activeTab.value = 1
+    }
+
+    if (hashContains('user')) {
       activeTab.value = 2
       const hash = currentPath.value.slice(2)
       if (hash && !hash.length) return
@@ -84,14 +91,35 @@
       initialUrlNpub.update(npub)
     }
 
-    if (hash.indexOf('feed') > -1) {
-      activeTab.value = 1
-    }
-
-    if (hash.indexOf('message') > -1) {
+    if (hashContains('message')) {
       activeTab.value = 3
     }
+
+    if (hashContains('help')) {
+      activeTab.value = 5
+      const hash = currentPath.value.slice(2)
+      if (hash && !hash.length) return
+      const section = hash.split('=')[1]
+      if (section !== 'privacy') return
+      await handlePrivacyClick()
+    }
   })
+
+  const hashContains = (str: string) => {
+    return currentPath.value.indexOf(str) > -1
+  }
+
+  const updateUrlHash = (hash: string) => {
+    window.location.hash = hash
+  }
+
+  const handlePrivacyClick = async () => {
+    activeTab.value = 5;
+    await nextTick();
+    if (privacyEl.value) {
+      privacyEl.value.scrollIntoView()
+    }
+  }
 
   const handleClickUserTab = () => {
     activeTab.value = 2
@@ -205,7 +233,7 @@
 
       const limit = DEFAULT_EVENTS_COUNT;
       const postsEvents = await relay.list([{ kinds: [1], limit }])
-      const authors = postsEvents.map(e => e.pubkey)
+      const authors = postsEvents.map((e: Event) => e.pubkey)
       const authorsEvents = await relay.list([{ kinds: [0], authors }])
 
       const posts = authorsEvents.length ?
@@ -213,13 +241,13 @@
         postsEvents
 
       eventsIds.clear()
-      posts.forEach(e => eventsIds.add(e.id))
+      posts.forEach((e: Event) => eventsIds.add(e.id))
       events.value = posts as EventWithAuthor[]
 
       connectedRelay.value = isCustom ? 'custom' : relayUrl
 
       relaySub = relay.sub([{ kinds: [1], limit: 1 }])
-      relaySub.on('event', event => {
+      relaySub.on('event', (event: Event) => {
         if (eventsIds.has(event.id)) return;
         newEvents.value.push({ id: event.id, pubkey: event.pubkey })
       })
@@ -237,7 +265,7 @@
 
     const ids = eventsToShow.map(e => e.id)
     const postsEvents = await currentRelay.list([{ ids }]);
-    const authors = postsEvents.map(e => e.pubkey)
+    const authors = postsEvents.map((e: Event) => e.pubkey)
     const authorsEvents = await currentRelay.list([{ kinds: [0], authors }])
 
     const posts = authorsEvents.length ?
@@ -245,15 +273,15 @@
       postsEvents
 
     // update view
-    posts.forEach(e => eventsIds.add(e.id))
+    posts.forEach((e: Event) => eventsIds.add(e.id))
     events.value = posts.concat(events.value) as EventWithAuthor[]
     showNewEvents.value = false
 
-    log(`loaded ${eventsToShow.length} new events from <b>${currentRelay.url}</b>`)
+    log(`loaded ${eventsToShow.length} new event(s) from <b>${currentRelay.url}</b>`)
   }
 
   const handleSendMessage = async () => {
-    const nsecValue = nsec.value.trim()
+    const nsecValue = nsec.value ? nsec.value.trim() : ''
     if (!nsecValue.length) {
       msgErr.value = 'Please provide your private key or generate random key.'
       return;
@@ -338,7 +366,7 @@
 
     const userNewEventOptions = [{ kinds: [1], authors: [pubKey.value], limit: 1 }]
     const userSub = currentRelay.sub(userNewEventOptions)
-    userSub.on('event', event => {
+    userSub.on('event', (event: Event) => {
       // update feed only if new event is loaded
       // interval needed because of delay between publishing and loading new event
       const interval = setInterval(async () => {
@@ -397,46 +425,65 @@
       event.showRawData = !event.showRawData
     }
   }
+
+  const toggleImages = () => {
+    showImages.value = !showImages.value
+  }
+
+  const handleNsecInput = () => {
+    if (rememberMe.value) {
+      localStorage.setItem('privkey', nsec.value as string)
+    }
+  }
+
+  const handleRememberMe = () =>{
+    if (rememberMe.value) {
+      localStorage.setItem('rememberMe', 'true')
+      localStorage.setItem('privkey', nsec.value as string)
+    } else {
+      localStorage.clear()
+    }
+  }
 </script>
 
 <template>
-  <div class="connect-desc">
-
-  </div>
-
-  <p class="relay-info">
-    <div class="message-fields">
-      <div class="message-fields__field">
-        <label class="field-label field-label_priv-key" for="relays">
-          <strong>Select relay</strong>
-        </label>
-        <div class="field-elements">
-        <select class="select-relay__select" @change="handleRelaySelect" name="relays" id="relays">
-          <option v-for="url in DEFAULT_RELAYS" :value="url">
-            {{ url }}
-          </option>
-          <option value="custom">custom url</option>
-        </select>
-
-
+  <p class="relay-fields">
+    <div class="relay-fields__wrapper">
+      <div class="relay-fields__relay">
+        <div class="relay-fields__select-field">
+          <label class="field-label_priv-key" for="relays">
+            <strong>Select relay</strong>
+          </label>
+          <div class="field-elements">
+            <select class="select-relay__select" @change="handleRelaySelect" name="relays" id="relays">
+              <option v-for="url in DEFAULT_RELAYS" :value="url">
+                {{ url }}
+              </option>
+              <option value="custom">custom url</option>
+            </select>
+            <button v-if="showConnectBtn" @click="handleRelayConnect" class="select-relay__btn">
+              {{ showConnectingToRelay ? 'Connecting...' : 'Connect' }}
+            </button>
+            <button v-if="!showConnectBtn" @click="handleRelayDisconnect" class="select-relay__btn">
+              Disconnect
+            </button>
+          </div>
+        </div>
+        <div class="show-images">
+          <ShowImagesCheckbox :showImages="showImages" @toggleImages="toggleImages" @handlePrivacyClick="handlePrivacyClick" />
         </div>
       </div>
       <div class="message-fields__field">
-        <label class="field-label" for="message">
+        <label for="message">
           <strong>Private key (optional)</strong>
-          <button @click="handleGenerateRandomPrivKey" class="random-key-btn">Random</button>
         </label>
         <div class="field-elements">
-          <input v-model="nsec" class="priv-key-input" id="priv_key" type="text" placeholder="nsec..." />
-
-
-      <button v-if="showConnectBtn" @click="handleRelayConnect" class="select-relay__btn">
-        {{ showConnectingToRelay ? 'Connecting...' : 'Connect' }}
-      </button>
-      <button v-if="!showConnectBtn" @click="handleRelayDisconnect" class="select-relay__btn">
-        Disconnect
-      </button>
-
+          <input @input="handleNsecInput" v-model="nsec" class="priv-key-input" id="priv_key" type="password" placeholder="nsec..." />
+          <button @click="handleGenerateRandomPrivKey" class="random-key-btn">Random</button>
+        </div>
+        <div class="remember-me">
+          <input @change="handleRememberMe" class="remember-me__input" type="checkbox" id="remember-me" v-model="rememberMe" />
+          <label class="remember-me__label" for="remember-me"> Remember me</label>
         </div>
       </div>
     </div>
@@ -446,7 +493,7 @@
   </p>
 
   <div v-if="showCustomRelayUrl" class="field">
-    <label class="field-label" for="relay_url">
+    <label for="relay_url">
       <strong>Relay URL</strong>
     </label>
     <div class="field-elements">
@@ -493,7 +540,7 @@
   <div v-if="activeTab === 1" class="message-fields-wrapper">
     <div class="message-fields">
       <div class="message-fields__field">
-        <label class="field-label" for="message">
+        <label for="message">
           <strong>Message to broadcast</strong>
         </label>
         <div class="field-elements">
@@ -515,7 +562,7 @@
     </p>
 
     <div class="message-fields__field_sig">
-      <label class="field-label field-label_priv-key" for="priv_key">
+      <label class="field-label_priv-key" for="priv_key">
         <strong>JSON of a signed event</strong>
       </label>
       <div class="field-elements">
@@ -539,14 +586,6 @@
 
   <!-- Relay feed -->
   <div v-if="activeTab !== 2 && activeTab !== 5">
-    <div class="show-images">
-      <span class="show-images__field">
-        <input class="show-images__input" type="checkbox" id="show-feed-images" v-model="showImages" />
-        <label class="show-images__label" for="show-feed-images"> Show avatars</label>
-      </span>
-      <small> (Will load images from third-party URLs. This may compromise your IP address)</small>
-    </div>
-
     <div class="columns">
       <div :class="['events', { 'd-md-none': activeTab === 2 || activeTab === 4 }]">
         <div class="connecting-notice" v-if="showConnectingToRelay">
@@ -586,10 +625,11 @@
     <User
       :nsec="nsec"
       :currentRelay="currentRelay"
+      :showImages="showImages"
     />
   </div>
 
-  <div v-if="activeTab === 5" class="">
+  <div v-if="activeTab === 5">
     <h3>Slightly Private App</h3>
 
     <p>
@@ -623,7 +663,7 @@
     </p>
 
     <p>
-      <h3>Privacy policy</h3>
+      <h3 id="#privacy" ref="privacyEl">Privacy policy</h3>
       <ul>
         <li>No tracking from our end</li>
         <li>Private keys are not sent anywhere. They are stored in RAM of your device</li>
@@ -648,8 +688,28 @@
 </template>
 
 <style scoped>
-  .relay-info {
+  .relay-fields {
     margin-bottom: 20px;
+  }
+
+  .relay-fields__wrapper {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px;
+  }
+
+  @media (min-width: 768px) {
+    .relay-fields__wrapper {
+      flex-direction: row;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .relay-fields__select-field {
+      padding-right: 15px;
+      border-right: 1px solid #bbb;
+      margin-right: 15px;
+    }
   }
 
   .field-label_priv-key {
@@ -658,7 +718,6 @@
   }
 
   .random-key-btn {
-    margin-left: 7px;
     font-size: 14px;
     cursor: pointer;
   }
@@ -695,7 +754,7 @@
     .select-relay__select {
       margin-top: 0;
       margin-bottom: 0;
-      margin-right: 7px;
+      margin-right: 5px;
     }
   }
 
@@ -709,14 +768,21 @@
   }
 
   .show-images {
-    margin-bottom: -5px
+    margin-top: 10px;
+    margin-bottom: 10px;
   }
 
-  .show-images__input {
-    cursor: pointer;
+  @media (min-width: 768px) {
+    .show-images {
+      margin-bottom: 0px;
+    }
+  }
+  .remember-me {
+    margin-top: 10px;
   }
 
-  .show-images__label {
+  .remember-me__input,
+  .remember-me__label {
     cursor: pointer;
   }
 

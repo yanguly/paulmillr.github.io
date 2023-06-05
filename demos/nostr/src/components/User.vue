@@ -18,7 +18,6 @@
     initialUrlNpub,
     cachedUrlNpub,
     cachedNsec,
-    showImageAtUserInfo,
     isUserHasValidNip05
   } from './../store'
   import UserEvent from './UserEvent.vue'
@@ -49,13 +48,13 @@
   const props = defineProps<{
     currentRelay: Relay
     nsec: string
+    showImages: boolean
   }>()
 
   const pubKeyError = ref('')
   const showNotFoundError = ref(false)
   const nsec = ref('')
   const npub = ref('')
-  const showImages = ref(showImageAtUserInfo.value)
   const showLoadingUser = ref(false)
   const notFoundFallbackError = ref('')
   const isLoadingFallback = ref(false)
@@ -71,7 +70,7 @@
   }
 
   onMounted(() => {
-    if (initialUrlNpub.value.length && !cachedNpub.value.length) {
+    if (initialUrlNpub.value?.length && !cachedNpub.value.length) {
       npub.value = initialUrlNpub.value
       cachedUrlNpub.update(npub.value)
       initialUrlNpub.update('') // prevent re-run of this condition again
@@ -83,19 +82,6 @@
       nsec.value = cachedNsec.value
       return
     }
-
-    const propsNsec = props.nsec.trim()
-    if (!propsNsec.length) {
-      return
-    }
-
-    const { data } = nip19.decode(propsNsec)
-    const pubKey = getPublicKey(data as string)
-    npub.value = nip19.npubEncode(pubKey)
-    nsec.value = propsNsec
-
-    cachedNpub.update(npub.value)
-    cachedNsec.update(nsec.value)
   })
 
   onUnmounted(() => {
@@ -200,6 +186,26 @@
     handleInputNsec()
   }
 
+  const handleGeneratePublicFromPrivate = () => {
+    const nsecVal = props.nsec.trim()
+    if (!nsecVal.length) {
+      pubKeyError.value = 'Please provide private key first.'
+      return
+    }
+
+    const isHex = nsecVal.indexOf('nsec') === -1
+
+    try {
+      const privKeyHex = isHex ? nsecVal : nip19.decode(nsecVal).data.toString()
+      const pubKey = getPublicKey(privKeyHex)
+      npub.value = nip19.npubEncode(pubKey)
+      pubKeyError.value = ''
+    } catch (e) {
+      pubKeyError.value = 'Private key is invalid. Please check it and try again.'
+      return
+    }
+  }
+
   const handleSearchFallback = async () => {
     const npubVal = npub.value.trim()
     let pubHex
@@ -253,7 +259,7 @@
   <div class="field">
     <label class="field-label" for="user_public_key">
       <strong>Profile's public key</strong>
-      <button @click="handleGenerateRandomPrivKey" class="random-key-btn">Use mine</button>
+      <button @click="handleGeneratePublicFromPrivate" class="random-key-btn">Use mine</button>
     </label>
     <div class="field-elements">
       <input @input="handleInputNpub" v-model="npub" class="pubkey-input" id="user_public_key" type="text" placeholder="npub..." />
@@ -262,20 +268,6 @@
     <div class="error">
       {{ pubKeyError }}
     </div>
-  </div>
-
-  <div class="show-images">
-    <span class="show-images__field">
-      <input
-        class="show-images__input"
-        v-model="showImages"
-        @change="showImageAtUserInfo.update(showImages)"
-        type="checkbox"
-        id="show-feed-images"
-      />
-      <label class="show-images__label" for="show-feed-images"> Show avatars</label>
-    </span>
-    <small> (Will load image from third-party URL. This may compromise your IP address)</small>
   </div>
 
   <div class="loading-notice" v-if="showLoadingUser">
@@ -289,7 +281,7 @@
     :event="userEvent.value"
   >
     <div class="user">
-      <div v-if="showImages" class="user__avatar-wrapper">
+      <div v-if="props.showImages" class="user__avatar-wrapper">
         <img class="user__avatar" :src="userDetails.value.picture">
       </div>
       <div class="user__info">
@@ -518,7 +510,7 @@
 
   @media (min-width: 768px) {
     .pubkey-input {
-      margin-right: 7px;
+      margin-right: 5px;
     }
   }
 
@@ -576,18 +568,6 @@
   }
 
   button {
-    cursor: pointer;
-  }
-
-  .show-images {
-    margin-bottom: -5px
-  }
-
-  .show-images__input {
-    cursor: pointer;
-  }
-
-  .show-images__label {
     cursor: pointer;
   }
 

@@ -23,13 +23,6 @@ export const userDetails = reactive({
   }
 })
 
-export const showImageAtUserInfo = reactive({
-  value: false,
-  update(show: boolean) {
-    this.value = show
-  }
-})
-
 export const initialUrlNpub = reactive({
   value: '',
   update(npub: string) {
