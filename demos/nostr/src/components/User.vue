@@ -18,9 +18,11 @@
     initialUrlNpub,
     cachedUrlNpub,
     cachedNsec,
-    isUserHasValidNip05
+    isUserHasValidNip05,
+    isUsingFallbackSearch
   } from './../store'
   import UserEvent from './UserEvent.vue'
+  import DownloadIcon from './../icons/DownloadIcon.vue'
   import type { Author } from './../types'
 
   const BECH32_REGEX = /[\x21-\x7E]{1,83}1[023456789acdefghjklmnpqrstuvwxyz]{6,}/
@@ -49,16 +51,19 @@
     currentRelay: Relay
     nsec: string
     showImages: boolean
+    handleRelayConnect: Function
   }>()
 
   const pubKeyError = ref('')
   const showNotFoundError = ref(false)
   const nsec = ref('')
   const npub = ref('')
+  const pubHex = ref('')
   const showLoadingUser = ref(false)
   const notFoundFallbackError = ref('')
   const isLoadingFallback = ref(false)
   const showLoadingTextNotes = ref(false)
+  const isAutoConnectOnSearch = ref(false)
 
   const updateUrlUser = (npub: string) => {
     window.location.hash = `#?user=${npub}`
@@ -70,10 +75,12 @@
   }
 
   onMounted(() => {
+    // first mount when npub presented in url, run only once 
     if (initialUrlNpub.value?.length && !cachedNpub.value.length) {
       npub.value = initialUrlNpub.value
       cachedUrlNpub.update(npub.value)
       initialUrlNpub.update('') // prevent re-run of this condition again
+      isAutoConnectOnSearch.value = true
       return
     }
 
@@ -120,46 +127,59 @@
       return
     }
 
-    let pubHex
     try {
       let { data } = nip19.decode(npubVal)
-      pubHex = data.toString()
+      pubHex.value = data.toString()
     } catch (e) {
       pubKeyError.value = 'Public key is invalid. Please check it and try again.'
       return
     }
 
-    const relay = props.currentRelay
+    let relay: Relay
+    if (isAutoConnectOnSearch.value) {
+      relay = await props.handleRelayConnect()
+    } else {
+      relay = props.currentRelay
+    }
+    
     if (!relay || relay.status !== 1) {
-      pubKeyError.value = 'Please connect to relay first.'
+      pubKeyError.value = isAutoConnectOnSearch.value
+        ? 'Connection error, try to connect again or try to choose other relay.' 
+        : 'Please connect to relay first.'
       return;
     }
+    isAutoConnectOnSearch.value = false
 
     userEvent.update({} as Event)
     userDetails.update({} as Author)
     userNotesEvents.update([])
+    isUsingFallbackSearch.update(false)
 
     pubKeyError.value = ''
     showLoadingUser.value = true
 
-    const authorMeta = await relay.get({ kinds: [0], limit: 1, authors: [pubHex] })
+    const authorMeta = await relay.get({ kinds: [0], limit: 1, authors: [pubHex.value] })
     if (!authorMeta) {
       showLoadingUser.value = false
       showNotFoundError.value = true
       return
     }
-
+    
     showLoadingUser.value = false
     showNotFoundError.value = false
-
+    
     isUserHasValidNip05.update(false)
     userEvent.update(authorMeta)
     userDetails.update(JSON.parse(authorMeta.content))
 
+    const authorContacts = await relay.get({ kinds: [3], limit: 1, authors: [pubHex.value] })
+    userDetails.updateFollowingCount(authorContacts?.tags.length || 0)
+
+    // routing
     updateUrlUser(npubVal)
     cachedUrlNpub.update(npubVal)
 
-    // check if user has valid nip05
+    // check if user has a valid nip05
     if (userDetails.value.nip05) {
       try {
         const validNip = await isValidNip05(userDetails.value.nip05, authorMeta.pubkey)
@@ -170,14 +190,30 @@
     }
 
     showLoadingTextNotes.value = true
-    const notesEvents = await relay.list([{ kinds: [1], authors: [pubHex] }])
+    const notesEvents = await relay.list([{ kinds: [1], authors: [pubHex.value] }])
     userNotesEvents.update(notesEvents)
     showLoadingTextNotes.value = false
   }
 
-  const isValidNip05 = async (identifier: string, eventPubkey: string) => {
+  const isValidNip05 = async (identifier: string, metaEventPubkey: string) => {
     const profile = await nip05.queryProfile(identifier)
-    return eventPubkey === profile?.pubkey
+    return metaEventPubkey === profile?.pubkey
+  }
+
+  // not used yet
+  const getNip05Relays = async (identifier: string, metaEventPubkey: string) => {
+    const profile = await nip05.queryProfile(identifier)
+    if (metaEventPubkey !== profile?.pubkey) return []
+    return profile.relays
+  }
+
+  // WIP (not used yet)
+  const getNip65Relays = async () => {
+    const relay = props.currentRelay
+    const events = await relay.list([{ kinds: [10002], authors: [pubHex.value], limit: 1 }])
+    if (!events.length) return []
+    const event = events[0]
+    // TDOD: extract relays from event
   }
 
   const handleGenerateRandomPrivKey = () => {
@@ -208,10 +244,9 @@
 
   const handleSearchFallback = async () => {
     const npubVal = npub.value.trim()
-    let pubHex
     try {
       let { data } = nip19.decode(npubVal)
-      pubHex = data.toString()
+      pubHex.value = data.toString()
     } catch (e) {
       notFoundFallbackError.value = 'Something went wrong. Please check public key and try again.'
       return
@@ -219,8 +254,8 @@
 
     isLoadingFallback.value = true
     const pool = new SimplePool({ getTimeout: 5600 })
-    const authorMeta = await pool.get(fallbackRelays, { kinds: [0], limit: 1, authors: [pubHex] })
-
+    const authorMeta = await pool.get(fallbackRelays, { kinds: [0], limit: 1, authors: [pubHex.value] })
+    
     if (!authorMeta) {
       isLoadingFallback.value = false
       notFoundFallbackError.value = 'User was not found on listed relays.'
@@ -230,11 +265,16 @@
     isLoadingFallback.value = false
     showNotFoundError.value = false
     notFoundFallbackError.value = ''
-
+    
+    isUsingFallbackSearch.update(true)
     isUserHasValidNip05.update(false)
     userEvent.update(authorMeta)
     userDetails.update(JSON.parse(authorMeta.content))
 
+    const authorContacts = await pool.get(fallbackRelays, { kinds: [3], limit: 1, authors: [pubHex.value] })
+    userDetails.updateFollowingCount(authorContacts?.tags.length || 0)
+
+    // routing
     updateUrlUser(npubVal)
     cachedUrlNpub.update(npubVal)
 
@@ -249,9 +289,25 @@
     }
 
     showLoadingTextNotes.value = true
-    const notesEvents = await pool.list(fallbackRelays, [{ kinds: [1], authors: [pubHex] }])
+    const notesEvents = await pool.list(fallbackRelays, [{ kinds: [1], authors: [pubHex.value] }])
     userNotesEvents.update(notesEvents)
     showLoadingTextNotes.value = false
+  }
+
+  const handleLoadUserFollowers = async () => {   
+    const isFallback = isUsingFallbackSearch.value
+    const pool = new SimplePool({ getTimeout: 5600 })
+    const relays = isFallback ? fallbackRelays : [props.currentRelay.url]
+
+    const sub = await pool.sub(relays, [{ 
+      "#p": [pubHex.value],
+      kinds: [3], 
+    }])
+
+    userDetails.updateFollowersCount(0)
+    sub.on('event', () => {
+      userDetails.updateFollowersCount(userDetails.value.followersCount + 1)
+    })
   }
 </script>
 
@@ -263,7 +319,9 @@
     </label>
     <div class="field-elements">
       <input @input="handleInputNpub" v-model="npub" class="pubkey-input" id="user_public_key" type="text" placeholder="npub..." />
-      <button @click="handleGetUserInfo" class="get-user-btn">Search</button>
+      <button @click="handleGetUserInfo" class="get-user-btn">
+        {{ isAutoConnectOnSearch ? 'Connect & Search' : 'Search' }}
+      </button>
     </div>
     <div class="error">
       {{ pubKeyError }}
@@ -300,6 +358,22 @@
               <strong>nip05</strong>: {{ userDetails.value.nip05 }}
             </a>
           </div>
+          <div v-if="userDetails.value.followingCount >= 0" class="user__contacts">
+            <span class="user__contacts-col user__following-cnt">
+              <b>{{ userDetails.value.followingCount }}</b> Following
+            </span>
+            <span class="user__contacts-col user__followers-cnt">
+              <b v-if="userDetails.value.followersCount">
+                {{ userDetails.value.followersCount }}
+              </b>
+              <span v-else class="user__contacts-download-icon">
+                <DownloadIcon @click="handleLoadUserFollowers" />
+              </span>
+              <span class="user__contacts-followers-word">
+                Followers
+              </span>
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -316,7 +390,8 @@
 
   <div class="not-found" v-if="showNotFoundError">
     <div class="not-found__desc">
-      User was not found on selected relay. Please try to connect to another one or you can try to load info about this user from the list of popular relays:
+      User was not found on selected relay. 
+      Please try to connect to another one or you can try to load info about this user from the list of popular relays:
     </div>
     <div>
       <button @click="handleSearchFallback" class="fallback-search-btn">
@@ -488,6 +563,36 @@
     margin: 5px 0;
   }
 
+  .user__contacts {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 10px;
+  }
+
+  @media (min-width: 576px) {
+    .user__contacts {
+      justify-content: left;
+    }
+  }
+
+  .user__contacts-col {
+    word-break: break-word;
+  }
+
+  .user__followers-cnt {
+    display: flex;
+  }
+
+  .user__contacts-download-icon {
+    cursor: pointer;
+    margin-top: 1px;
+  }
+
+  .user__contacts-followers-word {
+    margin-left: 6px;
+  }
+
   .get-user-btn {
     font-size: 14px;
     cursor: pointer;
@@ -498,7 +603,7 @@
   @media (min-width: 768px) {
     .get-user-btn {
       margin-top: 0px;
-      width: 60px;
+      width: auto;
     }
   }
 

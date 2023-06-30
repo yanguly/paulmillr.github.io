@@ -7,6 +7,8 @@ export type Author = {
   about: string
   nickname: string
   nip05: string
+  followingCount: number
+  followersCount: number
 }
 
 export type EventWithAuthor = Event & {

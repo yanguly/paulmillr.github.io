@@ -257,6 +257,7 @@
   /* common styles */
 
   .event-footer {
+    margin-top: 10px;
     text-align: right;
   }
 

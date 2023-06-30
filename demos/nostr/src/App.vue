@@ -201,11 +201,16 @@
       if (!navigator.onLine) {
         error += `Seems you are offline. Please check your internet connection and try again.`
       } else {
-        error += `Please check address and try again. It should be a correct WebSocket URL for relay. Or check your internet connection.`
+        error += `Please check address and try again. Relay address should be a correct WebSocket URL. Or relay is unavailable or you are offline.`
       }
       wsError.value = error
       showConnectingToRelay.value = false
       return;
+    }
+
+    // open the feed while searching from help tab
+    if (activeTab.value === 5) {
+      activeTab.value = 1
     }
 
     // unsubscribe from previous list of relays and clear interval
@@ -257,6 +262,8 @@
     relay.on('error', () => {
       console.log(`failed to connect to ${relay.url}`)
     })
+
+    return relay
   }
 
   const loadNewRelayEvents = async () => {
@@ -626,6 +633,7 @@
       :nsec="nsec"
       :currentRelay="currentRelay"
       :showImages="showImages"
+      :handleRelayConnect="handleRelayConnect"
     />
   </div>
 

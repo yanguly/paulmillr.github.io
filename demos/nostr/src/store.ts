@@ -20,6 +20,12 @@ export const userDetails = reactive({
   value: <Author>{},
   update(details: Author) {
     this.value = details
+  },
+  updateFollowersCount(count: number) {
+    this.value.followersCount = count
+  },
+  updateFollowingCount(count: number) {
+    this.value.followingCount = count
   }
 })
 
@@ -55,5 +61,12 @@ export const isUserHasValidNip05 = reactive({
   value: false,
   update(isValid: boolean) {
     this.value = isValid
+  }
+})
+
+export const isUsingFallbackSearch = reactive({
+  value: false,
+  update(value: boolean) {
+    this.value = value
   }
 })
