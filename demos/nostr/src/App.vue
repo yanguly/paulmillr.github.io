@@ -23,9 +23,9 @@
   import TabLink from './components/TabLink.vue'
 
   import { DEFAULT_EVENTS_COUNT } from './app'
-  import { 
-    initialUrlNpub, 
-    cachedUrlNpub, 
+  import {
+    initialUrlNpub,
+    cachedUrlNpub,
     isConnectingToRelay,
     connectedRelayUrl,
     selectedRelay,
@@ -105,7 +105,7 @@
     }
 
     currentTab.update(tab)
-    
+
     if (!['help', 'user'].includes(tab)) return
 
     const hash = currentPath.value.slice(2)
@@ -116,7 +116,7 @@
     if (tab === 'user') {
       initialUrlNpub.update(hashValue)
     }
-    
+
     if (tab === 'help' && hashValue === 'privacy') {
       await handlePrivacyClick()
     }
@@ -144,16 +144,16 @@
   const updateNewEventsElement = async () => {
     const relay = currentRelay.value
     if (!relay) return;
-    
+
     const eventsToShow = newEvents.value
     if (eventsToShow.length < 2) return;
-    
+
     const pub1 = eventsToShow[eventsToShow.length - 1].pubkey
     const pub2 = eventsToShow[eventsToShow.length - 2].pubkey
-    
+
     const eventsListOptions1 = [{ kinds: [0], authors: [pub1], limit: 1 }]
     const eventsListOptions2 = [{ kinds: [0], authors: [pub2], limit: 1 }]
-    
+
     const author1 = await relay.list(eventsListOptions1)
     const author2 = await relay.list(eventsListOptions2)
 
@@ -206,7 +206,7 @@
   const injectLikesToNotes = async (postsEvents: Event[], fallbackRelays: string[] = []) => {
     const relay = currentRelay.value
     if (!relay) return postsEvents
-    
+
     const postsIds = postsEvents.map((e: Event) => e.id)
 
     let likeEvents: Event[] = []
@@ -292,7 +292,7 @@
       for (let i = 0; i < references.length; i++) {
         let { profile } = references[i]
         if (!profile) continue
-        
+
         let meta;
         if (isFallback && pool) {
           meta = await pool.get(fallbackRelays, { kinds: [0], limit: 1, authors: [profile.pubkey] })
@@ -490,10 +490,10 @@
       return;
     }
 
-    if (sentEventIds.has(event.id)) {
-      jsonErr.value = 'The same event can\'t be sent twice (same id, signature).'
-      return;
-    }
+    //if (sentEventIds.has(event.id)) {
+    //  jsonErr.value = 'The same event can\'t be sent twice (same id, signature).'
+    //  return;
+    //}
 
     const relay = currentRelay.value
     if (!relay || relay.status !== 1) {
@@ -510,7 +510,7 @@
   const broadcastEvent = async (event: Event) => {
     const relay = currentRelay.value
     if (!relay) return
-    
+
     clearInterval(curInterval)
 
     const userNewEventOptions = [{ kinds: [1], authors: [pubKey.value], limit: 1 }]
@@ -562,9 +562,9 @@
 </script>
 
 <template>
-  <HeaderFields 
-    @relayConnect="handleRelayConnect" 
-    @relayDisconnect="handleRelayDisconnect" 
+  <HeaderFields
+    @relayConnect="handleRelayConnect"
+    @relayDisconnect="handleRelayDisconnect"
     @handlePrivacyClick="handlePrivacyClick"
     :wsError="wsError"
   />
