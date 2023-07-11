@@ -1,10 +1,10 @@
 import { reactive } from 'vue'
 import type { Event } from 'nostr-tools'
-import type { Author } from './types'
+import type { Author, EventExtended } from './types'
 
 export const userNotesEvents = reactive({
-  value: <Event[]>([]),
-  update(events: Event[]) {
+  value: <EventExtended[]>([]),
+  update(events: EventExtended[]) {
     this.value = events
   }
 })
@@ -50,6 +50,13 @@ export const cachedNpub = reactive({
   }
 })
 
+export const npub = reactive({
+  value: '',
+  update(npub: string) {
+    this.value = npub
+  }
+})
+
 export const cachedNsec = reactive({
   value: '',
   update(nsec: string) {
@@ -67,6 +74,62 @@ export const isUserHasValidNip05 = reactive({
 export const isUsingFallbackSearch = reactive({
   value: false,
   update(value: boolean) {
+    this.value = value
+  }
+})
+
+export const isConnectingToRelay = reactive({
+  value: false,
+  update(value: boolean) {
+    this.value = value
+  }
+})
+
+export const connectedRelayUrl = reactive({
+  value: '',
+  update(value: string) {
+    this.value = value
+  }
+})
+
+export const selectedRelay = reactive({
+  value: '',
+  update(relay: string) {
+    this.value = relay
+  },
+})
+
+export const showImages = reactive({
+  value: false,
+  update(value: boolean) {
+    this.value = value
+  }
+})
+
+export const nsec = reactive({
+  value: '',
+  update(value: string) {
+    this.value = value
+  }
+})
+
+export const isRememberedUser = reactive({
+  value: false,
+  update(value: boolean) {
+    this.value = value
+  }
+})
+
+export const customRelayUrl = reactive({
+  value: '',
+  update(value: string) {
+    this.value = value
+  }
+})
+
+export const currentTab = reactive({
+  value: 'feed',
+  update(value: string) {
     this.value = value
   }
 })

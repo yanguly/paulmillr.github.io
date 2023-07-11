@@ -1,9 +1,8 @@
 <script setup lang="ts">
-  import { onMounted, ref, onUnmounted } from 'vue'
+  import { onMounted, ref, onUnmounted, computed, type Events } from 'vue'
   import {
     nip19,
     getPublicKey,
-    generatePrivateKey,
     SimplePool,
     nip05,
     type Relay,
@@ -17,58 +16,36 @@
     cachedNpub,
     initialUrlNpub,
     cachedUrlNpub,
-    cachedNsec,
+    nsec,
     isUserHasValidNip05,
-    isUsingFallbackSearch
+    isUsingFallbackSearch,
+    npub
   } from './../store'
   import UserEvent from './UserEvent.vue'
   import DownloadIcon from './../icons/DownloadIcon.vue'
-  import type { Author } from './../types'
-
-  const BECH32_REGEX = /[\x21-\x7E]{1,83}1[023456789acdefghjklmnpqrstuvwxyz]{6,}/
-
-  const fallbackRelays = [
-    'wss://relay.damus.io',
-    'wss://nostr-pub.wellorder.net',
-    'wss://offchain.pub',
-    'wss://nostr.fmt.wiz.biz',
-    'wss://eden.nostr.land',
-    'wss://atlas.nostr.land',
-    'wss://relay.snort.social',
-    'wss://nostr.fly.dev',
-    'wss://nostr.nostr.band',
-    'wss://relay.nostrgraph.net',
-    'wss://relay.nostr.bg',
-    'wss://nostr.wine',
-    'wss://nos.lol',
-    'wss://relay.mostr.pub',
-    'wss://no.str.cr',
-    'wss://brb.io',
-    'wss://nostr.zebedee.cloud'
-  ]
+  import type { Author, EventExtended } from './../types'
+  import { fallbackRelays } from './../app'
+  import EventContent from './EventContent.vue'
+  import { updateUrlUser } from './../utils'
 
   const props = defineProps<{
     currentRelay: Relay
-    nsec: string
     showImages: boolean
     handleRelayConnect: Function
+    injectLikesToNotes: Function
+    injectRepostsToNotes: Function
+    injectReferencesToNotes: Function
   }>()
 
   const pubKeyError = ref('')
   const showNotFoundError = ref(false)
-  const nsec = ref('')
-  const npub = ref('')
   const pubHex = ref('')
   const showLoadingUser = ref(false)
   const notFoundFallbackError = ref('')
   const isLoadingFallback = ref(false)
   const showLoadingTextNotes = ref(false)
   const isAutoConnectOnSearch = ref(false)
-
-  const updateUrlUser = (npub: string) => {
-    window.location.hash = `#?user=${npub}`
-  }
-
+  
   const nip05toURL = (identifier: string) => {
     const [name, domain] = identifier.split('@')
     return `https://${domain}/.well-known/nostr.json?name=${name}`
@@ -77,38 +54,22 @@
   onMounted(() => {
     // first mount when npub presented in url, run only once 
     if (initialUrlNpub.value?.length && !cachedNpub.value.length) {
-      npub.value = initialUrlNpub.value
+      npub.update(initialUrlNpub.value)
       cachedUrlNpub.update(npub.value)
       initialUrlNpub.update('') // prevent re-run of this condition again
       isAutoConnectOnSearch.value = true
       return
     }
 
-    if (cachedNsec.value.length || cachedNpub.value.length) {
-      npub.value = cachedNpub.value
-      nsec.value = cachedNsec.value
+    if (cachedNpub.value.length) {
+      npub.update(cachedNpub.value)
       return
     }
   })
 
   onUnmounted(() => {
     cachedNpub.update(npub.value)
-    cachedNsec.update(nsec.value)
   })
-
-  const handleInputNsec = () => {
-    const nsecVal = nsec.value.trim()
-    if (nsecVal.match(BECH32_REGEX)) {
-      try {
-        const { data } = nip19.decode(nsecVal)
-        const pubKey = getPublicKey(data as string)
-        npub.value = nip19.npubEncode(pubKey)
-        pubKeyError.value = ''
-      } catch (e) {
-        return
-      }
-    }
-  }
 
   const handleInputNpub = () => {
     notFoundFallbackError.value = ''
@@ -152,7 +113,7 @@
 
     userEvent.update({} as Event)
     userDetails.update({} as Author)
-    userNotesEvents.update([])
+    userNotesEvents.update([] as EventExtended[])
     isUsingFallbackSearch.update(false)
 
     pubKeyError.value = ''
@@ -165,34 +126,43 @@
       return
     }
     
-    showLoadingUser.value = false
-    showNotFoundError.value = false
+    const authorContacts = await relay.get({ kinds: [3], limit: 1, authors: [pubHex.value] })
     
-    isUserHasValidNip05.update(false)
     userEvent.update(authorMeta)
     userDetails.update(JSON.parse(authorMeta.content))
-
-    const authorContacts = await relay.get({ kinds: [3], limit: 1, authors: [pubHex.value] })
     userDetails.updateFollowingCount(authorContacts?.tags.length || 0)
+
+    isUserHasValidNip05.update(false)
+    showLoadingUser.value = false
+    showNotFoundError.value = false
 
     // routing
     updateUrlUser(npubVal)
     cachedUrlNpub.update(npubVal)
 
-    // check if user has a valid nip05
-    if (userDetails.value.nip05) {
-      try {
-        const validNip = await isValidNip05(userDetails.value.nip05, authorMeta.pubkey)
-        isUserHasValidNip05.update(validNip)
-      } catch (e) {
-        console.log('Failed to check nip05')
-      }
-    }
-
     showLoadingTextNotes.value = true
-    const notesEvents = await relay.list([{ kinds: [1], authors: [pubHex.value] }])
-    userNotesEvents.update(notesEvents)
+
+    checkAndShowNip05()
+
+    let notesEvents = await relay.list([{ kinds: [1], authors: [pubHex.value] }]) as EventExtended[]
+    notesEvents = await props.injectLikesToNotes(notesEvents)
+    notesEvents = await props.injectRepostsToNotes(notesEvents)
+    notesEvents = await props.injectReferencesToNotes(notesEvents)
+    
+    userNotesEvents.update(notesEvents as EventExtended[])
     showLoadingTextNotes.value = false
+  }
+
+  const checkAndShowNip05 = async () => {
+    const nip05Identifier = userDetails.value.nip05
+    const userPubkey = userEvent.value.pubkey
+    if (!nip05Identifier || !userPubkey) return
+    try {
+      const validNip = await isValidNip05(nip05Identifier, userPubkey)
+      isUserHasValidNip05.update(validNip)
+    } catch (e) {
+      console.log('Failed to check nip05')
+    }
   }
 
   const isValidNip05 = async (identifier: string, metaEventPubkey: string) => {
@@ -216,14 +186,8 @@
     // TDOD: extract relays from event
   }
 
-  const handleGenerateRandomPrivKey = () => {
-    const privKeyHex = generatePrivateKey()
-    nsec.value = nip19.nsecEncode(privKeyHex)
-    handleInputNsec()
-  }
-
   const handleGeneratePublicFromPrivate = () => {
-    const nsecVal = props.nsec.trim()
+    const nsecVal = nsec.value.trim()
     if (!nsecVal.length) {
       pubKeyError.value = 'Please provide private key first.'
       return
@@ -234,7 +198,7 @@
     try {
       const privKeyHex = isHex ? nsecVal : nip19.decode(nsecVal).data.toString()
       const pubKey = getPublicKey(privKeyHex)
-      npub.value = nip19.npubEncode(pubKey)
+      npub.update(nip19.npubEncode(pubKey))
       pubKeyError.value = ''
     } catch (e) {
       pubKeyError.value = 'Private key is invalid. Please check it and try again.'
@@ -262,35 +226,33 @@
       return
     }
 
-    isLoadingFallback.value = false
-    showNotFoundError.value = false
-    notFoundFallbackError.value = ''
+    const authorContacts = await pool.get(fallbackRelays, { kinds: [3], limit: 1, authors: [pubHex.value] })
     
-    isUsingFallbackSearch.update(true)
-    isUserHasValidNip05.update(false)
     userEvent.update(authorMeta)
     userDetails.update(JSON.parse(authorMeta.content))
-
-    const authorContacts = await pool.get(fallbackRelays, { kinds: [3], limit: 1, authors: [pubHex.value] })
     userDetails.updateFollowingCount(authorContacts?.tags.length || 0)
+    
+    notFoundFallbackError.value = ''
+    isLoadingFallback.value = false
+    showNotFoundError.value = false
+
+    isUsingFallbackSearch.update(true)
+    isUserHasValidNip05.update(false)
 
     // routing
     updateUrlUser(npubVal)
     cachedUrlNpub.update(npubVal)
 
-    // check if user has valid nip05
-    if (userDetails.value.nip05) {
-      try {
-        const validNip = await isValidNip05(userDetails.value.nip05, authorMeta.pubkey)
-        isUserHasValidNip05.update(validNip)
-      } catch (e) {
-        console.log('Failed to check nip05')
-      }
-    }
-
     showLoadingTextNotes.value = true
-    const notesEvents = await pool.list(fallbackRelays, [{ kinds: [1], authors: [pubHex.value] }])
-    userNotesEvents.update(notesEvents)
+
+    checkAndShowNip05()
+
+    let notesEvents = await pool.list(fallbackRelays, [{ kinds: [1], authors: [pubHex.value] }])
+    notesEvents = await props.injectLikesToNotes(notesEvents, fallbackRelays)
+    notesEvents = await props.injectRepostsToNotes(notesEvents, fallbackRelays)
+    notesEvents = await props.injectReferencesToNotes(notesEvents, fallbackRelays)
+
+    userNotesEvents.update(notesEvents as EventExtended[])
     showLoadingTextNotes.value = false
   }
 
@@ -318,7 +280,7 @@
       <button @click="handleGeneratePublicFromPrivate" class="random-key-btn">Use mine</button>
     </label>
     <div class="field-elements">
-      <input @input="handleInputNpub" v-model="npub" class="pubkey-input" id="user_public_key" type="text" placeholder="npub..." />
+      <input @input="handleInputNpub" v-model="npub.value" class="pubkey-input" id="user_public_key" type="text" placeholder="npub..." />
       <button @click="handleGetUserInfo" class="get-user-btn">
         {{ isAutoConnectOnSearch ? 'Connect & Search' : 'Search' }}
       </button>
@@ -336,7 +298,8 @@
     v-if="userEvent.value.id"
     :authorEvent="userEvent.value"
     :author="userDetails.value"
-    :event="userEvent.value"
+    :isUserProfile="true"
+    :event="(userEvent.value as EventExtended)"
   >
     <div class="user">
       <div v-if="props.showImages" class="user__avatar-wrapper">
@@ -383,8 +346,10 @@
   <h3 v-if="userNotesEvents.value.length > 0 && !showLoadingTextNotes">User notes</h3>
 
   <template v-for="event in userNotesEvents.value">
-    <UserEvent :event="event" :authorEvent="userEvent.value" :author="userDetails.value">
-      <div class="event-text-note">{{ event.content }}</div>
+    <UserEvent :event="event" :authorEvent="userEvent.value" :author="userDetails.value" :isUserProfile="false">
+      <div class="event-text-note">
+        <EventContent :event="event" />
+      </div>
     </UserEvent>
   </template>
 
@@ -641,12 +606,7 @@
   .field {
     margin-bottom: 15px;
   }
-
-  .field-label_priv-key {
-    display: flex;
-    align-items: center;
-  }
-
+  
   .random-key-btn {
     margin-left: 7px;
     font-size: 14px;

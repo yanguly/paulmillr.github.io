@@ -1,107 +1,88 @@
 <script setup lang="ts">
-  import { onBeforeMount, ref, nextTick } from 'vue'
+  import { onBeforeMount, ref } from 'vue'
   import {
     relayInit,
     getPublicKey,
     getEventHash,
     signEvent,
     nip19,
-    generatePrivateKey,
+    SimplePool,
+    parseReferences,
     type Sub,
     type Relay,
     type Event
   } from 'nostr-tools'
 
-  import type { EventWithAuthor } from './types'
+  import type { EventExtended } from './types'
+  import { updateUrlHash } from './utils'
   import User from './components/User.vue'
-  import RelayFeed from './components/RelayFeed.vue'
-  import ShowImagesCheckbox from './components/ShowImagesCheckbox.vue'
-  import { initialUrlNpub, cachedUrlNpub } from './store'
+  import RelayEventsList from './components/RelayEventsList.vue'
+  import HeaderFields from './components/HeaderFields.vue'
+  import Help from './components/Help.vue'
+  import RelayLog from './components/RelayLog.vue'
+  import TabLink from './components/TabLink.vue'
+
+  import { DEFAULT_EVENTS_COUNT } from './app'
+  import { 
+    initialUrlNpub, 
+    cachedUrlNpub, 
+    isConnectingToRelay,
+    connectedRelayUrl,
+    selectedRelay,
+    showImages,
+    nsec,
+    isRememberedUser,
+    customRelayUrl,
+    currentTab
+  } from './store'
 
   const currentPath = ref(window.location.hash)
 
-  const DEFAULT_RELAYS = [
-    'wss://nos.lol',
-    'wss://relay.nostr.band',
-    'wss://relay.nostr.ai',
-    'wss://relayable.org',
-    'wss://relay.damus.io'
-  ]
-  const DEFAULT_EVENTS_COUNT = 20;
-
   let relaySub: Sub;
-  let currentRelay: Relay;
   let curInterval: number;
 
+  const currentRelay = ref<Relay>()
+
   const isRemembered = localStorage.getItem('rememberMe') === 'true'
+  isRememberedUser.update(isRemembered)
   const initialNsec = isRemembered ? localStorage.getItem('privkey') : ''
+  nsec.update(initialNsec || '')
 
   // events in feed
-  const events = ref<EventWithAuthor[]>([])
+  const events = ref<EventExtended[]>([])
   const eventsIds = new Set()
   const sentEventIds = new Set()
 
-  const customRelay = ref('')
-  const selectedRelay = ref(DEFAULT_RELAYS[0])
-  const connectedRelay = ref('')
-  const nsec = ref(initialNsec || '')
   const message = ref('')
   const pubKey = ref('')
   const signedJson = ref('')
 
   let newEvents = ref<{ id: string; pubkey: string; }[]>([]);
 
-  let showNewEvents = ref(false)
-  let showNewEventsCount = ref(0)
+  let showNewEventsBadge = ref(false)
+  let newEventsBadgeCount = ref(0)
   let newAuthorImg1 = ref('');
   let newAuthorImg2 = ref('');
 
   const eventsLog = ref<string[]>([]);
 
-  const showImages = ref(false)
-  const rememberMe = ref(isRemembered)
-  const showCustomRelayUrl = ref(false)
-  const showConnectBtn = ref(true)
-  const showConnectingToRelay = ref(false)
-
-  // 1 - feed, 2 - user, 3 - signed message, 4 - log, 5 - help
-  const activeTab = ref(5)
+  const tabs = ['feed', 'user', 'message', 'log', 'help']
 
   const wsError = ref('')
   const msgErr = ref('')
   const jsonErr = ref('')
 
-  const privacyEl = ref<null | HTMLElement>(null)
+  // it's a counter to always trigger updating of Help component for scrolling to privacy section
+  const showPrivacySection = ref(0)
 
   // runs once on app start
   onBeforeMount(async () => {
-    const hash = currentPath.value
-    if (!hash.length) return
+    if (isEmptyHash()) return
 
-    if (hashContains('feed')) {
-      activeTab.value = 1
-    }
-
-    if (hashContains('user')) {
-      activeTab.value = 2
-      const hash = currentPath.value.slice(2)
-      if (hash && !hash.length) return
-      const npub = hash.split('=')[1]
-      if (npub && !npub.length) return
-      initialUrlNpub.update(npub)
-    }
-
-    if (hashContains('message')) {
-      activeTab.value = 3
-    }
-
-    if (hashContains('help')) {
-      activeTab.value = 5
-      const hash = currentPath.value.slice(2)
-      if (hash && !hash.length) return
-      const section = hash.split('=')[1]
-      if (section !== 'privacy') return
-      await handlePrivacyClick()
+    for (const tab of tabs) {
+      if (hashContains(tab)) {
+        return await initializeTab(tab)
+      }
     }
   })
 
@@ -109,26 +90,51 @@
     return currentPath.value.indexOf(str) > -1
   }
 
-  const updateUrlHash = (hash: string) => {
-    window.location.hash = hash
+  const isEmptyHash = () => {
+    return currentPath.value.length === 0
   }
 
   const handlePrivacyClick = async () => {
-    activeTab.value = 5;
-    await nextTick();
-    if (privacyEl.value) {
-      privacyEl.value.scrollIntoView()
+    currentTab.update('help')
+    showPrivacySection.value = showPrivacySection.value + 1
+  }
+
+  const initializeTab = async (tab: string) => {
+    if (tab === 'log') {
+      return route('feed')
+    }
+
+    currentTab.update(tab)
+    
+    if (!['help', 'user'].includes(tab)) return
+
+    const hash = currentPath.value.slice(2)
+    if (!hash?.length) return
+    const hashValue = hash.split('=')[1]
+    if (!hashValue?.length) return
+
+    if (tab === 'user') {
+      initialUrlNpub.update(hashValue)
+    }
+    
+    if (tab === 'help' && hashValue === 'privacy') {
+      await handlePrivacyClick()
     }
   }
 
-  const handleClickUserTab = () => {
-    activeTab.value = 2
-    const npub = cachedUrlNpub.value
-    if (!npub.length) {
-      updateUrlHash(`#user`)
-      return
+  const route = (tab: string) => {
+    currentTab.update(tab)
+    if (tab === 'user' && cachedUrlNpub.value.length) {
+      updateUrlHash(`#?user=${cachedUrlNpub.value}`)
+    } else if (tab === 'log') {
+      // only on mobile devices log is a separate tab
+      updateUrlHash('feed')
+    } else if (tab == 'help') {
+      showPrivacySection.value = 0
+      updateUrlHash(tab)
+    } else {
+      updateUrlHash(tab)
     }
-    updateUrlHash(`#?user=${npub}`)
   }
 
   const log = (msg: string) => {
@@ -136,34 +142,45 @@
   }
 
   const updateNewEventsElement = async () => {
+    const relay = currentRelay.value
+    if (!relay) return;
+    
     const eventsToShow = newEvents.value
     if (eventsToShow.length < 2) return;
-
+    
     const pub1 = eventsToShow[eventsToShow.length - 1].pubkey
     const pub2 = eventsToShow[eventsToShow.length - 2].pubkey
-
+    
     const eventsListOptions1 = [{ kinds: [0], authors: [pub1], limit: 1 }]
     const eventsListOptions2 = [{ kinds: [0], authors: [pub2], limit: 1 }]
-
-    const author1 = await currentRelay.list(eventsListOptions1)
-    const author2 = await currentRelay.list(eventsListOptions2)
+    
+    const author1 = await relay.list(eventsListOptions1)
+    const author2 = await relay.list(eventsListOptions2)
 
     if (!curInterval) return;
 
     newAuthorImg1.value = JSON.parse(author1[0].content).picture
     newAuthorImg2.value = JSON.parse(author2[0].content).picture
 
-    showNewEventsCount.value = eventsToShow.length
-    showNewEvents.value = true
+    newEventsBadgeCount.value = eventsToShow.length
+    showNewEventsBadge.value = true
   }
 
-  const injectAuthorsToNotes = (postsEvents: Event[], authorsEvents: Event[]) => {
+  const injectAuthorsToNotes = async (postsEvents: Event[]) => {
+    const relay = currentRelay.value
+    if (!relay) return postsEvents;
+
+    const authors = postsEvents.map((e: Event) => e.pubkey)
+    const authorsEvents = await relay.list([{ kinds: [0], authors }])
+
+    if (!authorsEvents.length) return postsEvents;
+
     const postsWithAuthor: Event[] = [];
     postsEvents.forEach(pe => {
       let isAuthoAddedToPost = false;
       authorsEvents.forEach(ae => {
         if (pe.pubkey === ae.pubkey) {
-          const tempEventWithAuthor = pe as EventWithAuthor
+          const tempEventWithAuthor = pe as EventExtended
           tempEventWithAuthor.author = JSON.parse(ae.content)
           tempEventWithAuthor.authorEvent = ae
           postsWithAuthor.push(pe)
@@ -175,16 +192,137 @@
         postsWithAuthor.push(pe)
       }
     })
+
     return postsWithAuthor;
   }
 
+  const isLike = (content: string) => {
+    if (["-", "👎"].includes(content)) {
+      return false
+    }
+    return true
+  }
+
+  const injectLikesToNotes = async (postsEvents: Event[], fallbackRelays: string[] = []) => {
+    const relay = currentRelay.value
+    if (!relay) return postsEvents
+    
+    const postsIds = postsEvents.map((e: Event) => e.id)
+
+    let likeEvents: Event[] = []
+    if (fallbackRelays.length) {
+      const pool = new SimplePool({ getTimeout: 5600 })
+      likeEvents = await pool.list(fallbackRelays, [{ kinds: [7], "#e": postsIds }])
+    } else {
+      likeEvents = await relay.list([{ kinds: [7], '#e': postsIds }])
+    }
+
+    const postsWithLikes: Event[] = [];
+    postsEvents.forEach(postEvent => {
+      let likes = 0
+      likeEvents.forEach(likedEvent => {
+        const likedEventId = likedEvent.tags.reverse().find((tag: Array<string>) => tag[0] === 'e')?.[1]
+        if (likedEventId && likedEventId === postEvent.id && likedEvent.content && isLike(likedEvent.content)) {
+          likes++
+        }
+      })
+      const tempEvent = postEvent as EventExtended
+      tempEvent.likes = likes
+      postsWithLikes.push(tempEvent)
+    })
+
+    return postsWithLikes
+  }
+
+  const injectRepostsToNotes = async (postsEvents: Event[], fallbackRelays: string[] = []) => {
+    const relay = currentRelay.value
+    if (!relay) return postsEvents
+
+    const postsIds = postsEvents.map((e: Event) => e.id)
+
+    let repostEvents: Event[] = []
+    if (fallbackRelays.length) {
+      const pool = new SimplePool({ getTimeout: 5600 })
+      repostEvents = await pool.list(fallbackRelays, [{ kinds: [6], "#e": postsIds }])
+    } else {
+      repostEvents = await relay.list([{ kinds: [6], '#e': postsIds }])
+    }
+
+    const postsWithReposts: Event[] = [];
+    postsEvents.forEach(postEvent => {
+      let reposts = 0
+      repostEvents.forEach(repostEvent => {
+        const repostEventId = repostEvent.tags.find((tag: Array<string>) => tag[0] === 'e')?.[1]
+        if (repostEventId && repostEventId === postEvent.id) {
+          reposts++
+        }
+      })
+      const tempEvent = postEvent as EventExtended
+      tempEvent.reposts = reposts
+      postsWithReposts.push(tempEvent)
+    })
+
+    return postsWithReposts
+  }
+
+  const injectReferencesToNotes = async (postsEvents: Event[], fallbackRelays: string[] = []) => {
+    const eventsWithReferences: EventExtended[] = [];
+    const relay = currentRelay.value
+    if (!relay) return postsEvents
+
+    let isFallback = false
+    let pool: SimplePool | undefined
+    if (fallbackRelays.length) {
+      pool = new SimplePool({ getTimeout: 5600 })
+      isFallback = true
+    }
+
+    for (const event of postsEvents) {
+      const extendedEvent = event as EventExtended
+
+      if (!contentHasMentions(event.content)) {
+        extendedEvent.references = []
+        eventsWithReferences.push(extendedEvent)
+        continue
+      }
+
+      let references = parseReferences(event)
+
+      const referencesToInject = []
+      for (let i = 0; i < references.length; i++) {
+        let { profile } = references[i]
+        if (!profile) continue
+        
+        let meta;
+        if (isFallback && pool) {
+          meta = await pool.get(fallbackRelays, { kinds: [0], limit: 1, authors: [profile.pubkey] })
+        } else {
+          meta = await relay.get({ kinds: [0], limit: 1, authors: [profile.pubkey] })
+        }
+
+        const referencesWithProfile = references[i] as any
+        referencesWithProfile.profile_details = JSON.parse(meta?.content || '{}');
+        referencesToInject.push(referencesWithProfile)
+      }
+
+      extendedEvent.references = referencesToInject
+      eventsWithReferences.push(extendedEvent)
+    }
+
+    return eventsWithReferences
+  }
+
+  const contentHasMentions = (content: string) => {
+    return content.indexOf('nostr:npub') !== -1 || content.indexOf('nostr:nprofile1') !== -1
+  }
+
   async function handleRelayConnect() {
-    if (showConnectingToRelay.value) return
+    if (isConnectingToRelay.value) return
 
     let relayUrl = selectedRelay.value
     let isCustom = false
     if (relayUrl === 'custom') {
-      relayUrl = customRelay.value
+      relayUrl = customRelayUrl.value
       isCustom = true
     }
 
@@ -192,7 +330,7 @@
 
     let relay: Relay;
     try {
-      showConnectingToRelay.value = true
+      isConnectingToRelay.update(true)
       relay = relayInit(relayUrl)
       await relay.connect()
       wsError.value = ''
@@ -204,19 +342,19 @@
         error += `Please check address and try again. Relay address should be a correct WebSocket URL. Or relay is unavailable or you are offline.`
       }
       wsError.value = error
-      showConnectingToRelay.value = false
+      isConnectingToRelay.update(false)
       return;
     }
 
-    // open the feed while searching from help tab
-    if (activeTab.value === 5) {
-      activeTab.value = 1
+    // open the feed while connecting from help tab
+    if (currentTab.value === 'help') {
+      route('feed')
     }
 
     // unsubscribe from previous list of relays and clear interval
-    if (currentRelay) {
-      currentRelay.close();
-      log(`disconnected from <b>${currentRelay.url}</b>`)
+    if (currentRelay.value) {
+      currentRelay.value.close();
+      log(`disconnected from <b>${currentRelay.value.url}</b>`)
     }
     if (relaySub) relaySub.unsub();
     if (curInterval) {
@@ -224,32 +362,30 @@
       curInterval = 0;
     }
 
-    currentRelay = relay;
+    currentRelay.value = relay;
 
     relay.on('connect', async () => {
       log(`connected to <b>${relay.url}</b>`)
 
-      showConnectBtn.value = false
-      showConnectingToRelay.value = false
+      isConnectingToRelay.update(false)
 
       // hide new events element and clear it's values
-      showNewEvents.value = false
+      showNewEventsBadge.value = false
       newEvents.value = []
 
       const limit = DEFAULT_EVENTS_COUNT;
       const postsEvents = await relay.list([{ kinds: [1], limit }])
-      const authors = postsEvents.map((e: Event) => e.pubkey)
-      const authorsEvents = await relay.list([{ kinds: [0], authors }])
 
-      const posts = authorsEvents.length ?
-        injectAuthorsToNotes(postsEvents, authorsEvents) :
-        postsEvents
+      let posts = await injectAuthorsToNotes(postsEvents)
+      posts = await injectLikesToNotes(posts)
+      posts = await injectRepostsToNotes(posts)
+      posts = await injectReferencesToNotes(posts)
 
       eventsIds.clear()
       posts.forEach((e: Event) => eventsIds.add(e.id))
-      events.value = posts as EventWithAuthor[]
+      events.value = posts as EventExtended[]
 
-      connectedRelay.value = isCustom ? 'custom' : relayUrl
+      connectedRelayUrl.update(isCustom ? 'custom' : relayUrl)
 
       relaySub = relay.sub([{ kinds: [1], limit: 1 }])
       relaySub.on('event', (event: Event) => {
@@ -267,24 +403,25 @@
   }
 
   const loadNewRelayEvents = async () => {
+    const relay = currentRelay.value
+    if (!relay) return
+
     let eventsToShow = newEvents.value;
     newEvents.value = newEvents.value.filter(item => !eventsToShow.includes(item));
 
     const ids = eventsToShow.map(e => e.id)
-    const postsEvents = await currentRelay.list([{ ids }]);
-    const authors = postsEvents.map((e: Event) => e.pubkey)
-    const authorsEvents = await currentRelay.list([{ kinds: [0], authors }])
-
-    const posts = authorsEvents.length ?
-      injectAuthorsToNotes(postsEvents, authorsEvents) :
-      postsEvents
+    const postsEvents = await relay.list([{ ids }]);
+    let posts = await injectAuthorsToNotes(postsEvents)
+    posts = await injectLikesToNotes(posts)
+    posts = await injectRepostsToNotes(posts)
+    posts = await injectReferencesToNotes(posts)
 
     // update view
     posts.forEach((e: Event) => eventsIds.add(e.id))
-    events.value = posts.concat(events.value) as EventWithAuthor[]
-    showNewEvents.value = false
+    events.value = posts.concat(events.value) as EventExtended[]
+    showNewEventsBadge.value = false
 
-    log(`loaded ${eventsToShow.length} new event(s) from <b>${currentRelay.url}</b>`)
+    log(`loaded ${eventsToShow.length} new event(s) from <b>${relay.url}</b>`)
   }
 
   const handleSendMessage = async () => {
@@ -310,7 +447,8 @@
       return;
     }
 
-    if (!currentRelay || currentRelay.status !== 1) {
+    const relay = currentRelay.value
+    if (!relay || relay.status !== 1) {
       msgErr.value = 'Please connect to relay first.'
       return;
     }
@@ -357,7 +495,8 @@
       return;
     }
 
-    if (!currentRelay || currentRelay.status !== 1) {
+    const relay = currentRelay.value
+    if (!relay || relay.status !== 1) {
       jsonErr.value = 'Please connect to relay first.'
       return;
     }
@@ -369,10 +508,13 @@
   }
 
   const broadcastEvent = async (event: Event) => {
+    const relay = currentRelay.value
+    if (!relay) return
+    
     clearInterval(curInterval)
 
     const userNewEventOptions = [{ kinds: [1], authors: [pubKey.value], limit: 1 }]
-    const userSub = currentRelay.sub(userNewEventOptions)
+    const userSub = relay.sub(userNewEventOptions)
     userSub.on('event', (event: Event) => {
       // update feed only if new event is loaded
       // interval needed because of delay between publishing and loading new event
@@ -386,44 +528,29 @@
       }, 100)
     })
 
-    const pub = currentRelay.publish(event)
+    const pub = relay.publish(event)
     pub.on('ok', async () => {
       sentEventIds.add(event.id)
-      log(`new event broadcasted to <b>${currentRelay.url}</b>`)
+      log(`new event broadcasted to <b>${relay.url}</b>`)
     })
     pub.on('failed', (reason: string) => {
-      log(`failed to publish to <b>${currentRelay.url}</b>: ${reason}`)
+      log(`failed to publish to <b>${relay.url}</b>: ${reason}`)
     })
-  }
-
-  const handleRelaySelect = (event: any) => {
-    const value = event.target.value;
-    showCustomRelayUrl.value = value === 'custom'
-
-    if (value === connectedRelay.value) {
-      showConnectBtn.value = false;
-      return;
-    }
-
-    selectedRelay.value = value;
-    showConnectBtn.value = true;
   }
 
   const handleRelayDisconnect = () => {
+    const relay = currentRelay.value
+    if (!relay) return
+
     clearInterval(curInterval)
-    showNewEvents.value = false
+    showNewEventsBadge.value = false
     newEvents.value = []
 
+    connectedRelayUrl.update('')
     relaySub.unsub()
-    currentRelay.close()
+    relay.close()
 
-    showConnectBtn.value = true;
-    log(`disconnected from <b>${currentRelay.url}</b>`)
-  }
-
-  const handleGenerateRandomPrivKey = () => {
-    const privKeyHex = generatePrivateKey()
-    nsec.value = nip19.nsecEncode(privKeyHex)
+    log(`disconnected from <b>${relay.url}</b>`)
   }
 
   const handleToggleRawData = (eventId: string) => {
@@ -432,119 +559,36 @@
       event.showRawData = !event.showRawData
     }
   }
-
-  const toggleImages = () => {
-    showImages.value = !showImages.value
-  }
-
-  const handleNsecInput = () => {
-    if (rememberMe.value) {
-      localStorage.setItem('privkey', nsec.value as string)
-    }
-  }
-
-  const handleRememberMe = () =>{
-    if (rememberMe.value) {
-      localStorage.setItem('rememberMe', 'true')
-      localStorage.setItem('privkey', nsec.value as string)
-    } else {
-      localStorage.clear()
-    }
-  }
 </script>
 
 <template>
-  <p class="relay-fields">
-    <div class="relay-fields__wrapper">
-      <div class="relay-fields__relay">
-        <div class="relay-fields__select-field">
-          <label class="field-label_priv-key" for="relays">
-            <strong>Select relay</strong>
-          </label>
-          <div class="field-elements">
-            <select class="select-relay__select" @change="handleRelaySelect" name="relays" id="relays">
-              <option v-for="url in DEFAULT_RELAYS" :value="url">
-                {{ url }}
-              </option>
-              <option value="custom">custom url</option>
-            </select>
-            <button v-if="showConnectBtn" @click="handleRelayConnect" class="select-relay__btn">
-              {{ showConnectingToRelay ? 'Connecting...' : 'Connect' }}
-            </button>
-            <button v-if="!showConnectBtn" @click="handleRelayDisconnect" class="select-relay__btn">
-              Disconnect
-            </button>
-          </div>
-        </div>
-        <div class="show-images">
-          <ShowImagesCheckbox :showImages="showImages" @toggleImages="toggleImages" @handlePrivacyClick="handlePrivacyClick" />
-        </div>
-      </div>
-      <div class="message-fields__field">
-        <label for="message">
-          <strong>Private key (optional)</strong>
-        </label>
-        <div class="field-elements">
-          <input @input="handleNsecInput" v-model="nsec" class="priv-key-input" id="priv_key" type="password" placeholder="nsec..." />
-          <button @click="handleGenerateRandomPrivKey" class="random-key-btn">Random</button>
-        </div>
-        <div class="remember-me">
-          <input @change="handleRememberMe" class="remember-me__input" type="checkbox" id="remember-me" v-model="rememberMe" />
-          <label class="remember-me__label" for="remember-me"> Remember me</label>
-        </div>
-      </div>
-    </div>
-    <div class="error">
-      {{ wsError }}
-    </div>
-  </p>
-
-  <div v-if="showCustomRelayUrl" class="field">
-    <label for="relay_url">
-      <strong>Relay URL</strong>
-    </label>
-    <div class="field-elements">
-      <input v-model="customRelay" class="relay-input" id="relay_url" type="text" placeholder="wss://realay.example.com" />
-    </div>
-  </div>
-
-  <!--<hr class="delimetr">-->
+  <HeaderFields 
+    @relayConnect="handleRelayConnect" 
+    @relayDisconnect="handleRelayDisconnect" 
+    @handlePrivacyClick="handlePrivacyClick"
+    :wsError="wsError"
+  />
 
   <div class="tabs">
-    <span
-      v-on:click="activeTab = 1; updateUrlHash('feed')"
-      :class="['tabs__item', { 'tabs__item_active': activeTab === 1 }]"
-    >
+    <TabLink @click="route('feed')" :isActive="currentTab.value === 'feed'">
       Feed
-    </span>
-    <span
-      v-on:click="handleClickUserTab()"
-      :class="['tabs__item', { 'tabs__item_active': activeTab === 2 }]"
-    >
+    </TabLink>
+    <TabLink @click="route('user')" :isActive="currentTab.value === 'user'">
       Search
-    </span>
-    <span
-      v-on:click="activeTab = 3; updateUrlHash('message')"
-      :class="['tabs__item', { 'tabs__item_active': activeTab === 3 }]"
-    >
+    </TabLink>
+    <TabLink @click="route('message')" :isActive="currentTab.value === 'message'">
       Broadcast
-    </span>
-    <span
-      v-on:click="activeTab = 5; updateUrlHash('help')"
-      :class="['tabs__item', { 'tabs__item_active': activeTab === 5 }]"
-    >
+    </TabLink>
+    <TabLink @click="route('help')" :isActive="currentTab.value === 'help'">
       Help
-    </span>
-    <span
-      v-on:click="activeTab = 4; updateUrlHash('feed')"
-      :class="['tabs__item tabs_mobile', { 'tabs__item_active': activeTab === 4 }]"
-      >
-      Events log
-    </span>
+    </TabLink>
+    <TabLink @click="route('log')" :isActive="currentTab.value === 'log'">
+      Log
+    </TabLink>
   </div>
 
-  <!-- notes feed -->
-  <div v-if="activeTab === 1" class="message-fields-wrapper">
+  <!-- Message input -->
+  <div v-if="currentTab.value === 'feed'" class="message-fields-wrapper">
     <div class="message-fields">
       <div class="message-fields__field">
         <label for="message">
@@ -562,14 +606,14 @@
   </div>
 
   <!-- Signed event -->
-  <div v-if="activeTab === 3" class="message-fields-wrapper">
+  <div v-if="currentTab.value === 'message'" class="message-fields-wrapper">
     <p class="signed-message-desc">
       Event should be signed with your private key in advance. Event will be broadcasted to a selected relay.
       More details about events and signatures are <a target="_blank" href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">here</a>.
     </p>
 
     <div class="message-fields__field_sig">
-      <label class="field-label_priv-key" for="priv_key">
+      <label class="message-fields__label" for="signed_json">
         <strong>JSON of a signed event</strong>
       </label>
       <div class="field-elements">
@@ -592,206 +636,64 @@
   </div>
 
   <!-- Relay feed -->
-  <div v-if="activeTab !== 2 && activeTab !== 5">
+  <div v-if="currentTab.value === 'feed' || currentTab.value === 'message' || currentTab.value === 'log'">
     <div class="columns">
-      <div :class="['events', { 'd-md-none': activeTab === 2 || activeTab === 4 }]">
-        <div class="connecting-notice" v-if="showConnectingToRelay">
+      <div :class="['events', { 'd-md-none': currentTab.value === 'log' }]">
+        <div class="connecting-notice" v-if="isConnectingToRelay.value">
           Loading {{ currentRelay ? 'new' : '' }} relay feed...
         </div>
 
-        <div @click="loadNewRelayEvents" v-if="showNewEvents" class="new-events">
-          <div v-if="showImages" class="new-events__imgs">
+        <div @click="loadNewRelayEvents" v-if="showNewEventsBadge" class="new-events">
+          <div v-if="showImages.value" class="new-events__imgs">
             <img class="new-events__img" :src="newAuthorImg1" alt="img">
             <img class="new-events__img" :src="newAuthorImg2" alt="img">
           </div>
-          <span class="new-events__text">{{ showNewEventsCount }} new notes</span>
+          <span class="new-events__text">{{ newEventsBadgeCount }} new notes</span>
           <b class="new-events__arrow">↑</b>
         </div>
 
-        <RelayFeed
+        <RelayEventsList
           :events="events"
           :pubKey="pubKey"
-          :showImages="showImages"
+          :showImages="showImages.value"
           @toggleRawData="handleToggleRawData"
         />
       </div>
 
-      <div :class="['log', { 'd-md-none': activeTab !== 4 }]">
-        <strong>Relay events log</strong>
-        <ul class="log__list">
-          <li class="log__list-item" v-for="value in eventsLog">
-            <span v-html="value"></span>
-          </li>
-        </ul>
+      <div :class="['log-wrapper', { 'd-md-none': currentTab.value !== 'log' }]">
+        <RelayLog :eventsLog="eventsLog" />
       </div>
     </div>
   </div>
 
   <!-- User -->
-  <div v-if="activeTab === 2">
+  <div v-if="currentTab.value === 'user'">
     <User
-      :nsec="nsec"
-      :currentRelay="currentRelay"
-      :showImages="showImages"
+      :currentRelay="(currentRelay as Relay)"
+      :showImages="showImages.value"
       :handleRelayConnect="handleRelayConnect"
+      :injectLikesToNotes="injectLikesToNotes"
+      :injectRepostsToNotes="injectRepostsToNotes"
+      :injectReferencesToNotes="injectReferencesToNotes"
     />
   </div>
 
-  <div v-if="activeTab === 5">
-    <h3>Slightly Private App</h3>
-
-    <p>
-      <a href="https://nostr.com">nostr</a> is public, censorship-resistant social network.
-      It's simple:
-
-      <ol>
-        <li>Select a relay from the list, or specify a <a href="https://nostr.watch/" target="_blank">custom URL</a></li>
-        <li><em>Optionally</em>, set your private key, to create new messages</li>
-      </ol>
-    </p>
-
-    <p>
-      Traditional social networks can suppress certain posts or users.
-      In nostr, every message is signed by user's <em>private key</em>
-      and broadcasted to <em>relays</em>.
-      <strong>Messages are tamper-resistant</strong>: no one can edit them,
-      or the signature will become invalid.
-      <strong>Users can't be blocked</strong>: even if a relay blocks someone, it's always
-      possible to switch to a different one, or create up a personal relay.
-    </p>
-
-    <p>
-      The app is available at <a href="http://nostr.spa">nostr.spa</a>. You can:
-      <ul>
-        <li><em>Connect</em> and see relay's global feed.</li>
-        <li><em>Post</em> new messages to the relay.</li>
-        <li><em>Broadcast</em> a pre-signed message. No need to enter a private key.</li>
-        <li><em>Search</em> information about a user or an event.</li>
-      </ul>
-    </p>
-
-    <p>
-      <h3 id="#privacy" ref="privacyEl">Privacy policy</h3>
-      <ul>
-        <li>No tracking from our end</li>
-        <li>Private keys are not sent anywhere. They are stored in RAM of your device</li>
-        <li>Relay will see your ip+browser after you click <em>Connect</em> button</li>
-        <li>GitHub will see ip+browser of anyone who's using the app, because it's hosted on GitHub Pages. They won't see any nostr-specific interactions you will make</li>
-        <li><em>Show avatars</em> feature will leak your ip+browser to random people on the internet. Since there are no centralized servers in nostr, every user can specify their own URL for avatar hosting. Meaning, users can control the hosting webservers and see logs</li>
-        <li><em>Remember me</em> feature will write private key you've entered to browser's Local Storage, which is usually stored on your device's disk</li>
-        <li>VPN or TOR usage is advised, <em>as with any nostr client</em>, to prevent ip leakage</li>
-      </ul>
-    </p>
-  <h3>Open source</h3>
-  <p>
-    The lightweight nostr client is built to showcase <a href="/noble/">noble</a> cryptography.
-    Signing is done using
-    <a target="_blank" href="https://github.com/paulmillr/noble-curves">noble-curves</a>, while <a target="_blank" href="https://github.com/paulmillr/scure-base">scure-base</a> is used for bech32,
-    <a target="_blank" href="https://github.com/nbd-wtf/nostr-tools">nostr-tools</a> are used
-    for general nostr utilities and Vue.js is utilized for UI.
-    Check out <a target="_blank" href="https://github.com/paulmillr/paulmillr.github.io">the source code</a>. You are welcome to host the client on your personal website.
-  </p>
-
+  <!-- Help -->
+  <div v-if="currentTab.value === 'help'">
+    <Help :showPrivacy="showPrivacySection" />
   </div>
 </template>
 
 <style scoped>
-  .relay-fields {
-    margin-bottom: 20px;
-  }
-
-  .relay-fields__wrapper {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 10px;
-  }
-
-  @media (min-width: 768px) {
-    .relay-fields__wrapper {
-      flex-direction: row;
-    }
-  }
-
-  @media (min-width: 768px) {
-    .relay-fields__select-field {
-      padding-right: 15px;
-      border-right: 1px solid #bbb;
-      margin-right: 15px;
-    }
-  }
-
-  .field-label_priv-key {
+  .message-fields__label {
     display: flex;
     align-items: center;
-  }
-
-  .random-key-btn {
-    font-size: 14px;
-    cursor: pointer;
   }
 
   .error {
     color:red;
     font-size: 16px;
     margin-top: 5px;
-  }
-
-  .select-relay {
-    display: flex;
-    flex-direction: column;
-  }
-
-  @media (min-width: 768px) {
-    .select-relay {
-      flex-direction: row;
-      align-items: center;
-    }
-  }
-
-  .select-relay__label {
-    margin-right: 7px;
-  }
-
-  .select-relay__select {
-    margin-top: 5px;
-    font-size: 16px;
-    margin-bottom: 5px;
-  }
-
-  @media (min-width: 768px) {
-    .select-relay__select {
-      margin-top: 0;
-      margin-bottom: 0;
-      margin-right: 5px;
-    }
-  }
-
-  .select-relay__btn {
-    font-size: 14px;
-    cursor: pointer;
-  }
-
-  .delimetr {
-    margin: 12px 0;
-  }
-
-  .show-images {
-    margin-top: 10px;
-    margin-bottom: 10px;
-  }
-
-  @media (min-width: 768px) {
-    .show-images {
-      margin-bottom: 0px;
-    }
-  }
-  .remember-me {
-    margin-top: 10px;
-  }
-
-  .remember-me__input,
-  .remember-me__label {
-    cursor: pointer;
   }
 
   .d-md-none {
@@ -815,28 +717,6 @@
     .tabs {
       display: block;
     }
-  }
-
-  @media (min-width: 768px) {
-    .tabs_mobile {
-      display: none !important;
-    }
-  }
-
-  .tabs__item {
-    color: white;
-    color: #0092bf;
-    margin-right: 15px;
-    cursor: pointer;
-    display: inline-block;
-  }
-
-  .tabs__item:hover {
-    text-decoration: underline;
-  }
-
-  .tabs__item_active {
-    text-decoration: underline;
   }
 
   .columns {
@@ -882,14 +762,6 @@
 
   .message-fields__field_sig input {
     margin-right: 0;
-  }
-
-  .text-right {
-    text-align: right;
-  }
-
-  .connect-desc {
-    margin-bottom: 15px;
   }
 
   .events {
@@ -954,25 +826,8 @@
     margin-right: -10px;
   }
 
-  .log {
-    border: 1px solid #bbb;
-    padding: 14px;
-    margin: 1rem 0;
+  .log-wrapper {
     flex-grow: 1;
-  }
-
-  .log__list {
-    padding-left: 18px;
-    padding-top: 5px;
-    padding-bottom: 5px;
-  }
-
-  .log__list-item {
-    margin-bottom: 10px
-  }
-
-  .field {
-    margin-bottom: 15px;
   }
 
   .field-elements {
@@ -988,18 +843,6 @@
     }
   }
 
-  .relay-input {
-    font-size: 15px;
-    padding: 1px 3px;
-    flex-grow: 1;
-  }
-
-  .priv-key-input {
-    font-size: 15px;
-    padding: 1px 3px;
-    flex-grow: 1;
-  }
-
   .message-input {
     font-size: 15px;
     padding: 1px 3px;
@@ -1007,8 +850,6 @@
   }
 
   @media (min-width: 768px) {
-    .relay-input,
-    .priv-key-input,
     .message-input {
       margin-right: 5px;
     }
@@ -1064,8 +905,5 @@
     .signed-json-btn-wrapper .error {
        margin-top: 0;
     }
-  }
-  .connecting-notice {
-    margin-top: 20px;
   }
 </style>

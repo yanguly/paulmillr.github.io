@@ -11,9 +11,18 @@ export type Author = {
   followersCount: number
 }
 
-export type EventWithAuthor = Event & {
+export type EventExtended = Event & {
   author: Author,
   authorEvent: Event,
   showRawData: boolean,
-  rawDataActiveTab: number
+  rawDataActiveTab: number,
+  likes: number,
+  reposts: number,
+  references: Array<Object>,
+}
+
+export type EventContentPart = {
+  type: string,
+  value: string,
+  npub?: string,
 }

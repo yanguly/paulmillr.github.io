@@ -2,8 +2,9 @@
   import type { EventExtended } from './../types'
   import RawData from './RawData.vue'
   import { nip19 } from 'nostr-tools'
-  import ActionsBar from './EventActionsBar.vue'
-
+  import EventActionsBar from './EventActionsBar.vue'
+  import EventContent from './EventContent.vue'
+  
   defineProps<{
     events: EventExtended[]
     pubKey: string
@@ -42,39 +43,38 @@
 
 <template>
   <div>
-    <template v-for="({ id, kind, content, created_at, pubkey, tags, sig, author, showRawData, authorEvent, likes }, i) in events">
-      <div :class="['event', { 'event_custom': pubKey === pubkey }]">
+    <template v-for="(event, i) in events">
+      <div :class="['event', { 'event_custom': pubKey === event.pubkey }]">
         <div class="event__main-content">
-          <div v-if="!showRawData" class="event__presentable-date">
-            <div v-if="showImages && author" class="event-img">
-              <img class="author-pic" :src="author.picture" alt="img" :title="`Avatar for ${ author.name }`">
+          <div v-if="!event.showRawData" class="event__presentable-date">
+            <div v-if="showImages && event.author" class="event-img">
+              <img class="author-pic" :src="event.author.picture" alt="img" :title="`Avatar for ${ event.author.name }`">
             </div>
             <div class="event-content">
               <div class="event-header">
                 <div>
-                  <b>{{ displayName(author, pubkey) }}</b>
+                  <b>{{ displayName(event.author, event.pubkey) }}</b>
                 </div>
                 <div>
-                  {{ formatedDate(created_at) }}
+                  {{ formatedDate(event.created_at) }}
                 </div>
               </div>
               <hr>
               <div class="content">
-                {{ content?.slice(0, 150) }}
-                {{ content?.length > 150 ? '...' : '' }}
+                <EventContent :event="event" :slice="150" />
               </div>
               <div class="event-footer">
-                <ActionsBar :likes="likes" :reposts="0" />
-                <span @click="() => handleToggleRawData(id)" title="See raw data" class="event-footer-code">
+                <EventActionsBar :likes="event.likes" :reposts="0" />
+                <span @click="() => handleToggleRawData(event.id)" title="See raw data" class="event-footer-code">
                   {...}
                 </span>
               </div>
             </div>
           </div>
-          <div :class="[{ 'event-details-first': i === 0 }]" v-if="showRawData">
-            <RawData :event="{ id, kind, pubkey, created_at, content, tags, sig }" :authorEvent="authorEvent" :author="author" />
+          <div :class="[{ 'event-details-first': i === 0 }]" v-if="event.showRawData">
+            <RawData :event="event" :authorEvent="event.authorEvent" :author="event.author" />
             <div class="event-footer-code-wrapper">
-              <span @click="() => handleToggleRawData(id)" title="See raw data" class="event-footer-code">
+              <span @click="() => handleToggleRawData(event.id)" title="See raw data" class="event-footer-code">
                 {...}
               </span>
             </div>

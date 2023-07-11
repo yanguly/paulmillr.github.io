@@ -2,12 +2,14 @@
   import { ref, watchEffect } from 'vue'
   import { nip19, verifySignature, type Event } from 'nostr-tools'
   import RawData from './RawData.vue'
-  import type { Author } from './../types'
+  import EventActionsBar from './EventActionsBar.vue'
+  import type { Author, EventExtended } from './../types'
 
   const props = defineProps<{
-    event: Event
+    event: EventExtended
     authorEvent: Event
     author: Author
+    isUserProfile: boolean
   }>()
 
   const event = ref<Event>()
@@ -21,6 +23,9 @@
   const sig = ref('')
   const pubkey = ref('')
   const created_at = ref(0)
+  const likes = ref(0)
+  const reposts = ref(0)
+  const isUserProfile = ref(false)
 
   watchEffect(() => {
     event.value = props.event
@@ -28,28 +33,14 @@
     sig.value = props.event.sig
     pubkey.value = props.event.pubkey
     created_at.value = props.event.created_at
+    likes.value = props.event.likes
+    reposts.value = props.event.reposts
+    isUserProfile.value = props.isUserProfile
   })
 
   const formatedDate = (timestamp: number) => {
     const ms = timestamp * 1000
     return new Date(ms).toLocaleString();
-    /*
-    const date = new Date(ms).toLocaleString('default', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      second: 'numeric',
-      timeZoneName: 'longOffset'
-    })
-    const timeZone = new Date(ms).toLocaleDateString('default', {
-      day: '2-digit',
-      timeZoneName: 'long',
-    }).slice(4)
-    return `${date} (${timeZone})`
-    */
   }
 
   const handleCheckSignature = () => {
@@ -119,15 +110,17 @@
 
     <RawData v-if="showRawData" :event="event" :authorEvent="authorEvent" :author="author"  />
 
-    <div class="event-footer">
-      <div class="event-footer-code">
-        <span @click="handleToggleRawData">{...}</span>
-      </div>
+    <div class="event-footer" :class="{ 'd-block': isUserProfile }">
+      <EventActionsBar v-if="!isUserProfile" :likes="likes" :reposts="reposts" />
+      <span class="event-footer-code" @click="handleToggleRawData">{...}</span>
     </div>
   </div>
 </template>
 
 <style scoped>
+  .d-block {
+    display: block;
+  }
   .event__header {
     margin-bottom: 15px;
   }
