@@ -10,10 +10,10 @@ description: 'High-security, auditable set of contained cryptographic libraries 
     <strong>noble cryptography</strong> is a high-security, auditable set of contained cryptographic libraries with following features:
 
     <ul>
-      <li>No dependencies, tiny files</li>
-      <li>Easily auditable TypeScript code</li>
-      <li>Supported in all major browsers and stable node.js versions</li>
-      <li>All releases are signed with PGP keys</li>
+      <li>No dependencies, protection against supply chain attacks</li>
+      <li>Auditable TypeScript / JS code</li>
+      <li>Supported on all major platforms</li>
+      <li>Releases are signed with PGP keys and built transparently with NPM provenance</li>
     </ul>
 
     The idea was to: 1) improve knowledge of cryptography 2) improve supply chain security of JS ecosystem 3) provide libraries that could be used for learning, because other libs are too low-level / unfriendly to beginners. Active projects:
@@ -45,6 +45,14 @@ description: 'High-security, auditable set of contained cryptographic libraries 
       <li>Mar 2023: <a href="https://github.com/paulmillr/noble-secp256k1/releases/tag/2.0.0">secp256k1</a> and <a href="https://github.com/paulmillr/noble-ed25519/releases/tag/2.0.0">ed25519</a> have been rewritten and became 4KB (gzipped) single-feature versions of curves</li>
       <li>Jun 2023: <a href="https://github.com/paulmillr/noble-ciphers">ciphers</a> have been released</li>
     </ul>
+
+    <h3>scure</h3>
+    <p>noble's sister project: basically, libraries, audited by 3rd-party - just like noble - but, unrelated to cryptography:
+      <a href="https://github.com/paulmillr/scure-base">base</a>,
+      <a href="https://github.com/paulmillr/scure-bip32">bip32</a>,
+      <a href="https://github.com/paulmillr/scure-bip39">bip39</a>,
+      <a href="https://github.com/paulmillr/scure-btc-signer">btc-signer</a>
+    </p>
   </section>
   <h3 id="demo">Demo 1: Elliptic curve calculator</h3>
   <p>This is a simple form that allows to calculate elliptic curve public keys and signatures with <strong>noble</strong>. “Random” button uses <code>crypto.getRandomValues</code>, which is cryptographically secure RNG. The source code is <a href="https://github.com/paulmillr/paulmillr.github.io">available on GitHub</a>.</p>
