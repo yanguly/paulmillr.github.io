@@ -1,11 +1,19 @@
 <script setup lang="ts">
   import EmptyHeartIcon from './../icons/EmptyHeartIcon.vue'
   import ArrowRepeatIcon from './../icons/ArrowRepeatIcon.vue'
+  import ReplyIcon from './../icons/ReplyIcon.vue'
+
+  const emit = defineEmits(['showReplyField'])
 
   defineProps<{
     likes: number
     reposts: number
+    hasReply?: boolean
   }>()
+
+  const handleShowReplyField = () => {
+    emit('showReplyField')
+  }
 </script>
 
 <template>
@@ -18,6 +26,9 @@
       <ArrowRepeatIcon class="actions-bar__icon" />
       <span class="actions_bar-number">{{ reposts }}</span>
     </span>
+    <span v-if="hasReply" @click="handleShowReplyField" class="actions-bar__action actions-bar__reply">
+      <ReplyIcon class="actions-bar__icon" />
+    </span>
   </div>
 </template>
 
@@ -25,10 +36,21 @@
   .actions-bar__action {
     display: inline-flex;
     align-items: center;
+    position: relative;
   }
 
   .actions-bar__likes {
     margin-right: 12px;
+  }
+
+  .actions-bar__repost {
+    margin-right: 12px;
+  }
+
+  .actions-bar__reply {
+    position: relative;
+    top: 2px;
+    cursor: pointer;
   }
 
   .actions-bar__icon {

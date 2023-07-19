@@ -1,6 +1,8 @@
 <script setup lang="ts">
+  import type { LogContentPart } from './../types';
+
   const props = defineProps<{
-    eventsLog: string[]
+    eventsLog: LogContentPart[][]
   }>()
 </script>
 
@@ -8,8 +10,11 @@
   <div class="log">
     <strong>Relay events log</strong>
     <ul class="log__list">
-      <li class="log__list-item" v-for="value in props.eventsLog">
-        <span v-html="value"></span>
+      <li class="log__list-item" v-for="log in props.eventsLog">
+        <template v-for="{ type, value } in log">
+          <span v-if="type === 'text'">{{ value }}</span>
+          <b v-else="type === 'bold'">{{ value }}</b>
+        </template>
       </li>
     </ul>
   </div>

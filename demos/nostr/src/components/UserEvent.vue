@@ -10,6 +10,7 @@
     authorEvent: Event
     author: Author
     isUserProfile: boolean
+    key: string
   }>()
 
   const event = ref<Event>()
@@ -110,7 +111,7 @@
 
     <RawData v-if="showRawData" :event="event" :authorEvent="authorEvent" :author="author"  />
 
-    <div class="event-footer" :class="{ 'd-block': isUserProfile }">
+    <div class="event-footer" :class="{ 'event-footer_block': isUserProfile }">
       <EventActionsBar v-if="!isUserProfile" :likes="likes" :reposts="reposts" />
       <span class="event-footer-code" @click="handleToggleRawData">{...}</span>
     </div>
@@ -118,9 +119,6 @@
 </template>
 
 <style scoped>
-  .d-block {
-    display: block;
-  }
   .event__header {
     margin-bottom: 15px;
   }
@@ -250,8 +248,14 @@
   /* common styles */
 
   .event-footer {
+    display: flex;
+    justify-content: space-between;
     margin-top: 10px;
-    text-align: right;
+  }
+
+  .event-footer_block {
+    display: block;
+    text-align: right;    
   }
 
   .event-footer-code {

@@ -6,6 +6,12 @@ export const userNotesEvents = reactive({
   value: <EventExtended[]>([]),
   update(events: EventExtended[]) {
     this.value = events
+  },
+  toggleRawData(id: string) {
+    const event = this.value.find(e => e.id === id)
+    if (event) {
+      event.showRawData = !event.showRawData
+    }
   }
 })
 

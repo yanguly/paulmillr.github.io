@@ -177,7 +177,7 @@
 
   .select-relay__select {
     margin-top: 5px;
-    font-size: 16px;
+    font-size: 17px;
     margin-bottom: 5px;
   }
 
@@ -186,6 +186,7 @@
       margin-top: 0;
       margin-bottom: 0;
       margin-right: 5px;
+      font-size: 16px;
     }
   }
 
@@ -247,21 +248,24 @@
   }
 
   .relay-input {
-    font-size: 15px;
+    font-size: 16px;
     padding: 1px 3px;
     flex-grow: 1;
   }
 
   .priv-key-input {
-    font-size: 15px;
+    font-size: 16px;
     padding: 1px 3px;
     flex-grow: 1;
+    margin-bottom: 5px;
   }
 
   @media (min-width: 768px) {
     .relay-input,
     .priv-key-input{
+      font-size: 15px;
       margin-right: 5px;
+      margin-bottom: 0;
     }
   }
 </style>

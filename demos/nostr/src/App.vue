@@ -13,7 +13,7 @@
     type Event
   } from 'nostr-tools'
 
-  import type { EventExtended } from './types'
+  import type { EventExtended, LogContentPart } from './types'
   import { updateUrlHash } from './utils'
   import User from './components/User.vue'
   import RelayEventsList from './components/RelayEventsList.vue'
@@ -64,7 +64,7 @@
   let newAuthorImg1 = ref('');
   let newAuthorImg2 = ref('');
 
-  const eventsLog = ref<string[]>([]);
+  const eventsLog = ref<LogContentPart[][]>([]);
 
   const tabs = ['feed', 'user', 'message', 'log', 'help']
 
@@ -137,8 +137,13 @@
     }
   }
 
-  const log = (msg: string) => {
-    eventsLog.value.unshift(`${msg} <br> [${new Date().toLocaleString()}]`)
+  const logStr = (msg: string) => {
+    const parts = [{ type: 'text', value: msg }]
+    logHtmlParts(parts)
+  }
+
+  const logHtmlParts = (parts: LogContentPart[]) => {
+    eventsLog.value.unshift(parts)
   }
 
   const updateNewEventsElement = async () => {
@@ -316,6 +321,10 @@
     return content.indexOf('nostr:npub') !== -1 || content.indexOf('nostr:nprofile1') !== -1
   }
 
+  const timeout = (ms: number) => {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   async function handleRelayConnect() {
     if (isConnectingToRelay.value) return
 
@@ -328,18 +337,40 @@
 
     if (!relayUrl.length) return;
 
+    // unsubscribe from previous list of relays and clear interval
+    if (currentRelay.value) {
+      currentRelay.value.close();
+      logHtmlParts([
+        { type: 'text', value: 'disconnected from ' },
+        { type: 'bold', value: currentRelay.value.url }
+      ])
+    }
+    if (relaySub) {
+      relaySub.unsub()
+    }
+    if (curInterval) {
+      clearInterval(curInterval)
+      curInterval = 0;
+    }
+
     let relay: Relay;
     try {
       isConnectingToRelay.update(true)
       relay = relayInit(relayUrl)
-      await relay.connect()
+      // two attempts to connect
+      try {
+        await relay.connect()
+      } catch (e) {
+        await timeout(500)
+        await relay.connect()
+      }
       wsError.value = ''
     } catch (e) {
-      let error = `WebSocket connection to "${relayUrl}" failed. `
+      let error = `WebSocket connection to "${relayUrl}" failed. You can try again`
       if (!navigator.onLine) {
-        error += `Seems you are offline. Please check your internet connection and try again.`
+        error += `Or check your internet connection.`
       } else {
-        error += `Please check address and try again. Relay address should be a correct WebSocket URL. Or relay is unavailable or you are offline.`
+        error += `Also check WebSocket address. Relay address should be a correct WebSocket URL. Or relay is unavailable or you are offline.`
       }
       wsError.value = error
       isConnectingToRelay.update(false)
@@ -351,21 +382,13 @@
       route('feed')
     }
 
-    // unsubscribe from previous list of relays and clear interval
-    if (currentRelay.value) {
-      currentRelay.value.close();
-      log(`disconnected from <b>${currentRelay.value.url}</b>`)
-    }
-    if (relaySub) relaySub.unsub();
-    if (curInterval) {
-      clearInterval(curInterval)
-      curInterval = 0;
-    }
-
     currentRelay.value = relay;
 
     relay.on('connect', async () => {
-      log(`connected to <b>${relay.url}</b>`)
+      logHtmlParts([
+        { type: 'text', value: 'connected to ' },
+        { type: 'bold', value: relay.url }
+      ])
 
       isConnectingToRelay.update(false)
 
@@ -396,7 +419,10 @@
     })
 
     relay.on('error', () => {
-      console.log(`failed to connect to ${relay.url}`)
+      logHtmlParts([
+        { type: 'text', value: 'failed to connect to ' },
+        { type: 'bold', value: relay.url }
+      ])
     })
 
     return relay
@@ -421,7 +447,11 @@
     events.value = posts.concat(events.value) as EventExtended[]
     showNewEventsBadge.value = false
 
-    log(`loaded ${eventsToShow.length} new event(s) from <b>${relay.url}</b>`)
+    logHtmlParts([
+      { type: 'text', value: `loaded ${eventsToShow.length}` },
+      { type: 'text', value: ' new event(s) from ' },
+      { type: 'bold', value: relay.url }
+    ])
   }
 
   const handleSendMessage = async () => {
@@ -531,10 +561,17 @@
     const pub = relay.publish(event)
     pub.on('ok', async () => {
       sentEventIds.add(event.id)
-      log(`new event broadcasted to <b>${relay.url}</b>`)
+      logHtmlParts([
+        { type: 'text', value: 'new event broadcasted to ' },
+        { type: 'bold', value: relay.url }
+      ])
     })
     pub.on('failed', (reason: string) => {
-      log(`failed to publish to <b>${relay.url}</b>: ${reason}`)
+      logHtmlParts([
+        { type: 'text', value: 'failed to publish to ' },
+        { type: 'bold', value: relay.url },
+        { type: 'text', value: `: ${reason}` }
+      ])
     })
   }
 
@@ -550,7 +587,10 @@
     relaySub.unsub()
     relay.close()
 
-    log(`disconnected from <b>${relay.url}</b>`)
+    logHtmlParts([
+      { type: 'text', value: 'disconnected from ' },
+      { type: 'bold', value: relay.url }
+    ])
   }
 
   const handleToggleRawData = (eventId: string) => {
@@ -741,15 +781,11 @@
 
   .message-fields__field {
     flex-grow: 1;
-  }
-
-  .message-fields__field:first-child {
-    margin-right: 5px;
     margin-bottom: 10px
   }
 
   @media (min-width: 768px) {
-    .message-fields__field:first-child {
+    .message-fields__field {
       margin-bottom: 0;
     }
   }
@@ -844,13 +880,14 @@
   }
 
   .message-input {
-    font-size: 15px;
+    font-size: 16px;
     padding: 1px 3px;
     flex-grow: 1;
   }
 
   @media (min-width: 768px) {
     .message-input {
+      font-size: 15px;
       margin-right: 5px;
     }
   }
@@ -874,7 +911,15 @@
   }
 
   .signed-json-textarea {
+    font-size: 16px;
     width: 100%;
+    box-sizing: border-box;
+  }
+
+  @media (min-width: 768px) {
+    .signed-json-textarea{
+      font-size: 15px;
+    }
   }
 
   .signed-message-desc {

@@ -21,8 +21,13 @@ export type EventExtended = Event & {
   references: Array<Object>,
 }
 
-export type EventContentPart = {
+export type EventTextPart = {
   type: string,
   value: string,
   npub?: string,
+}
+
+export type LogContentPart = {
+  type: string,
+  value: string
 }

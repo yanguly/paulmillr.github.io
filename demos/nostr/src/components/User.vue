@@ -1,14 +1,18 @@
 <script setup lang="ts">
-  import { onMounted, ref, onUnmounted, computed, type Events } from 'vue'
+  import { onMounted, ref, onUnmounted, nextTick } from 'vue'
   import {
     nip19,
     getPublicKey,
     SimplePool,
     nip05,
+    nip10,
     type Relay,
     type Event
   } from 'nostr-tools'
 
+  import { fallbackRelays } from './../app'
+  import { updateUrlUser } from './../utils'
+  import type { Author, EventExtended } from './../types'
   import {
     userNotesEvents,
     userEvent,
@@ -23,10 +27,7 @@
   } from './../store'
   import UserEvent from './UserEvent.vue'
   import DownloadIcon from './../icons/DownloadIcon.vue'
-  import type { Author, EventExtended } from './../types'
-  import { fallbackRelays } from './../app'
-  import EventContent from './EventContent.vue'
-  import { updateUrlUser } from './../utils'
+  import EventView from './EventView.vue'
 
   const props = defineProps<{
     currentRelay: Relay
@@ -50,6 +51,8 @@
     const [name, domain] = identifier.split('@')
     return `https://${domain}/.well-known/nostr.json?name=${name}`
   }
+
+  const currentRelays = ref<string[]>([])
 
   onMounted(() => {
     // first mount when npub presented in url, run only once 
@@ -125,6 +128,8 @@
       showNotFoundError.value = true
       return
     }
+
+    currentRelays.value = [relay.url]
     
     const authorContacts = await relay.get({ kinds: [3], limit: 1, authors: [pubHex.value] })
     
@@ -145,12 +150,30 @@
     checkAndShowNip05()
 
     let notesEvents = await relay.list([{ kinds: [1], authors: [pubHex.value] }]) as EventExtended[]
+
+    const repliesIds = new Set()
+    notesEvents.forEach((event) => {
+      const nip10Data = nip10.parse(event)
+      if (nip10Data.reply || nip10Data.root) {
+        repliesIds.add(event.id)
+      }
+    })
+    notesEvents = notesEvents.filter((event) => !repliesIds.has(event.id))
+
+    notesEvents = injectAuthorToNotes(notesEvents, userDetails.value)
     notesEvents = await props.injectLikesToNotes(notesEvents)
     notesEvents = await props.injectRepostsToNotes(notesEvents)
     notesEvents = await props.injectReferencesToNotes(notesEvents)
-    
+
     userNotesEvents.update(notesEvents as EventExtended[])
     showLoadingTextNotes.value = false
+  }
+
+  const injectAuthorToNotes = (notes: EventExtended[], details: Author) => {
+    return notes.map(note => {
+      note.author = details
+      return note
+    })
   }
 
   const checkAndShowNip05 = async () => {
@@ -226,6 +249,8 @@
       return
     }
 
+    currentRelays.value = fallbackRelays
+
     const authorContacts = await pool.get(fallbackRelays, { kinds: [3], limit: 1, authors: [pubHex.value] })
     
     userEvent.update(authorMeta)
@@ -255,7 +280,7 @@
     userNotesEvents.update(notesEvents as EventExtended[])
     showLoadingTextNotes.value = false
   }
-
+  
   const handleLoadUserFollowers = async () => {   
     const isFallback = isUsingFallbackSearch.value
     const pool = new SimplePool({ getTimeout: 5600 })
@@ -270,6 +295,10 @@
     sub.on('event', () => {
       userDetails.updateFollowersCount(userDetails.value.followersCount + 1)
     })
+  }
+
+  const handleToggleRawData = (eventId: string) => {
+    userNotesEvents.toggleRawData(eventId)
   }
 </script>
 
@@ -300,6 +329,7 @@
     :author="userDetails.value"
     :isUserProfile="true"
     :event="(userEvent.value as EventExtended)"
+    :key="userEvent.value.id"
   >
     <div class="user">
       <div v-if="props.showImages" class="user__avatar-wrapper">
@@ -345,12 +375,8 @@
   <div v-if="showLoadingTextNotes">Loading user notes...</div>
   <h3 v-if="userNotesEvents.value.length > 0 && !showLoadingTextNotes">User notes</h3>
 
-  <template v-for="event in userNotesEvents.value">
-    <UserEvent :event="event" :authorEvent="userEvent.value" :author="userDetails.value" :isUserProfile="false">
-      <div class="event-text-note">
-        <EventContent :event="event" />
-      </div>
-    </UserEvent>
+  <template :key="event.id" v-for="(event, i) in userNotesEvents.value">
+    <EventView :showReplies="true" :currentRelays="currentRelays" :index="i" @toggleRawData="handleToggleRawData" :event="(event as EventExtended)" />
   </template>
 
   <div class="not-found" v-if="showNotFoundError">
@@ -376,85 +402,6 @@
 </template>
 
 <style scoped>
-  .pubkey-desc {
-    margin-bottom: 10px;
-  }
-
-  .event__header {
-    margin-bottom: 15px;
-  }
-
-  .header-title {
-    margin-right: 10px;
-  }
-  .code-wrapper {
-    display: inline-flex;
-    align-items: center;
-  }
-  .code-wrapper button {
-    margin-left: 10px;
-    font-size: 14px;
-  }
-  .col {
-    padding: 4px 0;
-  }
-
-  .header-col {
-    text-align: right;
-    width: 81px;
-  }
-
-  .content-col {
-    padding-left: 10px;
-  }
-
-  .text-right {
-    text-align: right;
-  }
-
-  .btn-field {
-    display: flex;
-    align-items: center;
-    position: relative;
-  }
-
-  .btn-field__label {
-    margin-right: 10px;
-  }
-
-  .btn-field__input {
-    flex-grow: 1;
-    background: transparent;
-    padding: 10px 12px;
-    border: 1px solid white;
-    font-size: 1.125rem;
-    color: #ddd;
-    font-weight: normal;
-    font-family: 'PT Mono', 'Menlo', monospace;
-    padding-right: 80px;
-  }
-
-  .btn-field__input_small {
-    padding-right: 59px;
-  }
-
-  .btn-field__btn {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-  }
-
-  .check-btn {
-    width: 60px;
-  }
-
-  .event {
-    border: 1px solid;
-    padding: 14px;
-    margin-top: 25px;
-  }
-
   .user {
     display: flex;
     margin: 18px 0;
@@ -573,13 +520,14 @@
   }
 
   .pubkey-input {
-    font-size: 15px;
+    font-size: 16px;
     padding: 1px 3px;
     flex-grow: 1;
   }
 
   @media (min-width: 768px) {
     .pubkey-input {
+      font-size: 15px;
       margin-right: 5px;
     }
   }
@@ -594,14 +542,6 @@
   }
 
   /* common styles, to refactor */
-
-  .event-footer {
-    text-align: right;
-  }
-
-  .event-footer-code {
-    cursor: pointer;
-  }
 
   .field {
     margin-bottom: 15px;
@@ -634,11 +574,6 @@
 
   button {
     cursor: pointer;
-  }
-
-  .event-text-note {
-    white-space: pre-line;
-    word-break: break-word;
   }
 
   .error {
