@@ -8,7 +8,7 @@
   defineProps<{
     likes: number
     reposts: number
-    hasReply?: boolean
+    hasReplyBtn?: boolean
   }>()
 
   const handleShowReplyField = () => {
@@ -26,7 +26,7 @@
       <ArrowRepeatIcon class="actions-bar__icon" />
       <span class="actions_bar-number">{{ reposts }}</span>
     </span>
-    <span v-if="hasReply" @click="handleShowReplyField" class="actions-bar__action actions-bar__reply">
+    <span v-if="hasReplyBtn" @click="handleShowReplyField" class="actions-bar__action actions-bar__reply">
       <ReplyIcon class="actions-bar__icon" />
     </span>
   </div>

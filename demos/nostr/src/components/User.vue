@@ -1,17 +1,17 @@
 <script setup lang="ts">
-  import { onMounted, ref, onUnmounted, nextTick } from 'vue'
+  import { onMounted, ref, onBeforeMount } from 'vue'
   import {
     nip19,
     getPublicKey,
-    SimplePool,
     nip05,
     nip10,
+    SimplePool,
     type Relay,
-    type Event
+    type Event,
   } from 'nostr-tools'
 
   import { fallbackRelays } from './../app'
-  import { updateUrlUser } from './../utils'
+  import { updateUrlUser, injectReferencesToNotes } from './../utils'
   import type { Author, EventExtended } from './../types'
   import {
     userNotesEvents,
@@ -23,11 +23,14 @@
     nsec,
     isUserHasValidNip05,
     isUsingFallbackSearch,
-    npub
+    npub,
   } from './../store'
   import UserEvent from './UserEvent.vue'
   import DownloadIcon from './../icons/DownloadIcon.vue'
   import EventView from './EventView.vue'
+
+  import { pool as p } from './../store'
+  const pool = p.value
 
   const props = defineProps<{
     currentRelay: Relay
@@ -70,8 +73,10 @@
     }
   })
 
-  onUnmounted(() => {
-    cachedNpub.update(npub.value)
+  onBeforeMount(() => {
+    if (userNotesEvents.value.length) {
+      handleGetUserInfo()
+    }
   })
 
   const handleInputNpub = () => {
@@ -240,7 +245,6 @@
     }
 
     isLoadingFallback.value = true
-    const pool = new SimplePool({ getTimeout: 5600 })
     const authorMeta = await pool.get(fallbackRelays, { kinds: [0], limit: 1, authors: [pubHex.value] })
     
     if (!authorMeta) {
@@ -272,18 +276,28 @@
 
     checkAndShowNip05()
 
-    let notesEvents = await pool.list(fallbackRelays, [{ kinds: [1], authors: [pubHex.value] }])
+    let notesEvents = await pool.list(fallbackRelays, [{ kinds: [1], authors: [pubHex.value] }]) as EventExtended[]
+
+    const repliesIds = new Set()
+    notesEvents.forEach((event) => {
+      const nip10Data = nip10.parse(event)
+      if (nip10Data.reply || nip10Data.root) {
+        repliesIds.add(event.id)
+      }
+    })
+    notesEvents = notesEvents.filter((event) => !repliesIds.has(event.id))
+
+    notesEvents = injectAuthorToNotes(notesEvents, userDetails.value)
     notesEvents = await props.injectLikesToNotes(notesEvents, fallbackRelays)
     notesEvents = await props.injectRepostsToNotes(notesEvents, fallbackRelays)
-    notesEvents = await props.injectReferencesToNotes(notesEvents, fallbackRelays)
+    notesEvents = await injectReferencesToNotes(notesEvents, fallbackRelays, pool as SimplePool) as EventExtended[]
 
-    userNotesEvents.update(notesEvents as EventExtended[])
+    userNotesEvents.update(notesEvents)
     showLoadingTextNotes.value = false
   }
   
   const handleLoadUserFollowers = async () => {   
     const isFallback = isUsingFallbackSearch.value
-    const pool = new SimplePool({ getTimeout: 5600 })
     const relays = isFallback ? fallbackRelays : [props.currentRelay.url]
 
     const sub = await pool.sub(relays, [{ 
@@ -376,7 +390,7 @@
   <h3 v-if="userNotesEvents.value.length > 0 && !showLoadingTextNotes">User notes</h3>
 
   <template :key="event.id" v-for="(event, i) in userNotesEvents.value">
-    <EventView :showReplies="true" :currentRelays="currentRelays" :index="i" @toggleRawData="handleToggleRawData" :event="(event as EventExtended)" />
+    <EventView :hasReplyBtn="true" :showReplies="true" :currentRelays="currentRelays" :index="i" @toggleRawData="handleToggleRawData" :event="(event as EventExtended)" />
   </template>
 
   <div class="not-found" v-if="showNotFoundError">

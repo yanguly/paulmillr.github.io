@@ -1,12 +1,18 @@
 <script setup lang="ts">
   import { onBeforeUpdate, ref } from 'vue'
-  import { nip19, getPublicKey, getEventHash, signEvent, parseReferences } from 'nostr-tools'
+  import { nip19, getPublicKey, getEventHash, signEvent, parseReferences, SimplePool, nip10 } from 'nostr-tools'
   import { showImages } from './../store'
   import type { EventExtended } from './../types'
   import RawData from './RawData.vue'
   import EventActionsBar from './EventActionsBar.vue'
   import EventText from './EventText.vue'
   import { nsec } from './../store'
+  import {
+    injectLikesToNotes,
+    injectRepostsToNotes,
+    injectReferencesToNotes,
+    injectAuthorsToNotes
+  } from './../utils'
 
   const emit = defineEmits(['toggleRawData', 'showReplyField', 'sendReply', 'resetSentStatus'])
   const replyText = ref('')
@@ -14,19 +20,28 @@
 
   const props = defineProps<{
     event: EventExtended
+    pool?: SimplePool
     pubKey?: string
     index?: number
-    hasReply?: boolean
+    hasReplyBtn?: boolean
     replyErr?: string
     isReplySent?: boolean
     isReplySentError?: boolean
+    sliceText?: number
+    isRootEvent?: boolean
+    currentRelays?: string[]
   }>()
 
-  const isShownReplyField = ref(false)
+  const showReplyField = ref(false)
   const isPublishingReply = ref(false)
+  const eventReplies = ref<EventExtended[]>([])
+  const showReplies = ref(false)
 
   const handleToggleRawData = (eventId: string) => {
-    emit('toggleRawData', eventId)
+    if (props.isRootEvent) {
+      return emit('toggleRawData', eventId)
+    }
+    props.event.showRawData = !props.event.showRawData
   }
 
   const formatedDate = (date: number) => {
@@ -39,18 +54,20 @@
   }
 
   onBeforeUpdate(() => {
-    if (props.replyErr) {
-      msgErr.value = props.replyErr
-    }
-    if (props.isReplySent) {
-      isPublishingReply.value = false
-      isShownReplyField.value = false
-      replyText.value = ''
-      emit('resetSentStatus')
-    }
-    if (props.isReplySentError) {
-      isPublishingReply.value = false
-      emit('resetSentStatus')
+    if (props.isRootEvent) {
+      if (props.replyErr) {
+        msgErr.value = props.replyErr
+      }
+      if (props.isReplySent) {
+        isPublishingReply.value = false
+        showReplyField.value = false
+        replyText.value = ''
+        emit('resetSentStatus')
+      }
+      if (props.isReplySentError) {
+        isPublishingReply.value = false
+        emit('resetSentStatus')
+      }
     }
   })
 
@@ -69,7 +86,7 @@
   }
 
   const handleToggleReplyField = () => {
-    isShownReplyField.value = !isShownReplyField.value
+    showReplyField.value = !showReplyField.value
     emit('showReplyField')
   }
 
@@ -164,7 +181,63 @@
     msgErr.value = ''
     isPublishingReply.value = true
 
-    emit('sendReply', event)
+    if (props.isRootEvent) {
+      return emit('sendReply', event)
+    }
+
+    const { currentRelays, pool } = props
+    if (!currentRelays || !pool) {
+      msgErr.value = 'Please connect to relay to broadcast event'
+      return
+    }
+
+    const pub = pool.publish(currentRelays, event)
+
+    pub.on('ok', async () => {
+      isPublishingReply.value = false
+      showReplyField.value = false
+      replyText.value = ''
+      handleLoadReplies()
+    })
+
+    pub.on('failed', (reason: string) => {
+      msgErr.value = 'Failed to broadcast event'
+      console.log('failed to broadcast event', reason)
+    })
+  }
+
+  const handleLoadReplies = async () => {
+    const { event, currentRelays, pool } = props
+    if (!currentRelays || !pool) return
+
+    // filter first level replies
+    let replies = await pool.list(currentRelays, [{kinds: [1], '#e': [event.id]}])
+    replies = replies.filter((reply) => {
+      const nip10Data = nip10.parse(reply)
+      return nip10Data?.root?.id === event.id || nip10Data?.reply?.id === event.id
+    })
+
+    const authors = replies.map((e: any) => e.pubkey)
+    const uniqueAuthors = [...new Set(authors)]
+    const authorsEvents = await pool.list(currentRelays, [{ kinds: [0], authors: uniqueAuthors }])
+
+    replies = await injectAuthorsToNotes(replies, authorsEvents)
+    replies = await injectLikesToNotes(replies, currentRelays)
+    replies = await injectRepostsToNotes(replies, currentRelays)
+    replies = await injectReferencesToNotes(replies, currentRelays, pool)
+
+    eventReplies.value = replies as EventExtended[]
+    event.hasReplies = true
+    showReplies.value = true
+
+    eventReplies.value.forEach(async (reply: any) => {
+      let deepReplies = await pool.list(currentRelays, [{ kinds: [1], limit: 1, '#e': [reply.id] }])
+      reply.hasReplies = deepReplies.length > 0
+    })
+  }
+
+  const handleHideReplies = () => {
+    showReplies.value = false
   }
 </script>
 
@@ -185,10 +258,10 @@
         </div>
 
         <hr>
-        <EventText :event="event" :slice="150" />
+        <EventText :event="event" :slice="sliceText" />
     
         <div class="event-footer">
-          <EventActionsBar :hasReply="hasReply" @showReplyField="handleToggleReplyField" :likes="event.likes" :reposts="0" />
+          <EventActionsBar :hasReplyBtn="hasReplyBtn" @showReplyField="handleToggleReplyField" :likes="event.likes" :reposts="0" />
           <span @click="() => handleToggleRawData(event.id)" title="See raw data" class="event-footer-code">
             {...}
           </span>
@@ -196,7 +269,7 @@
       </div>
     </div>
     <div :class="[{ 'event-details-first': index === 0 }]" v-if="event.showRawData">
-      <RawData :event="event" :authorEvent="event.authorEvent" :author="event.author" />
+      <RawData :event="event" :authorEvent="event.authorEvent" />
       <div class="event-footer-code-wrapper">
         <span @click="() => handleToggleRawData(event.id)" title="See raw data" class="event-footer-code">
           {...}
@@ -204,7 +277,8 @@
       </div>
     </div>
   </div>
-  <div v-if="isShownReplyField" class="reply-field">
+
+  <div v-if="showReplyField" class="reply-field">
     <textarea v-model="replyText" rows="4" class="reply-field__textarea" placeholder="Write a reply..."></textarea>
     <div class="reply-field__actions">
       <div class="reply-field__error">{{ msgErr }}</div>
@@ -213,9 +287,52 @@
       </button>
     </div>
   </div>
+
+  <a @click.prevent="handleLoadReplies" v-if="event.hasReplies && !showReplies" class="show-replies-link" href="#">
+    Show replies...
+  </a>
+  <a @click.prevent="handleHideReplies" v-if="showReplies" class="show-replies-link" href="#">
+    Hide replies...
+  </a>
+
+  <div v-if="showReplies && eventReplies.length" class="replies">
+    <div class="reply" :key="reply.id" v-for="(reply, i) in eventReplies">
+      <div class="reply__vertical-line"></div>
+      <EventContent 
+        :sliceText="sliceText" 
+        @toggleRawData="() => handleToggleRawData(event.id)" 
+        :event="(reply as EventExtended)"
+        :currentRelays="currentRelays"
+        :pool="pool"
+        :hasReplyBtn="hasReplyBtn"
+      />
+    </div>
+  </div>
 </template>
 
 <style scoped>
+  .replies {
+    margin-bottom: 30px;
+  }
+
+  .reply {
+    margin-top: 15px;
+    position: relative;
+  }
+  .reply__vertical-line {
+    position: absolute;
+    background-color: white;
+    width: 1px;
+    height: 15px;
+    left: 38px;
+    top: -15px;    
+  }
+
+  .show-replies-link {
+    display: inline-block;
+    margin-top: 5px;
+  }
+
   .event__main-content {
     border: 1px solid white;
     padding: 14px;

@@ -366,7 +366,7 @@
       }
       wsError.value = ''
     } catch (e) {
-      let error = `WebSocket connection to "${relayUrl}" failed. You can try again`
+      let error = `WebSocket connection to "${relayUrl}" failed. You can try again. `
       if (!navigator.onLine) {
         error += `Or check your internet connection.`
       } else {

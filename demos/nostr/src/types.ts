@@ -19,6 +19,7 @@ export type EventExtended = Event & {
   likes: number,
   reposts: number,
   references: Array<Object>,
+  hasReplies: boolean,
 }
 
 export type EventTextPart = {

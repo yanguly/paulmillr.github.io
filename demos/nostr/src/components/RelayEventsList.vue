@@ -24,6 +24,7 @@
         :pubKey="pubKey" 
         :index="i" 
         :showReplies="false"
+        :sliceText="150"
       />
     </template>
   </div>

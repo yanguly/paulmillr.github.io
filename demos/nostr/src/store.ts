@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import type { Event } from 'nostr-tools'
+import { SimplePool, type Event} from 'nostr-tools'
 import type { Author, EventExtended } from './types'
 
 export const userNotesEvents = reactive({
@@ -138,4 +138,8 @@ export const currentTab = reactive({
   update(value: string) {
     this.value = value
   }
+})
+
+export const pool = reactive({
+  value: new SimplePool({ getTimeout: 5600 })
 })

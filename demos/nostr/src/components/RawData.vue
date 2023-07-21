@@ -1,20 +1,31 @@
 <script setup lang="ts">
   import { onMounted, ref } from 'vue'
   import { nip19, type Event } from 'nostr-tools'
-  import type { Author } from './../types'
+  import type { Author, EventExtended } from './../types'
 
   const props = defineProps<{
-    event: Event
+    event: EventExtended
     authorEvent: Event
-    author: Author
   }>()
   const rawDataActiveTab = ref(1)
   const showAuthorTab = ref(true)
+
+  const clearEvent = ref<Event>()
+  const clearAuthorEvent = ref<Event>()
   
   onMounted(() => {
+    const { event, authorEvent } = props
+    clearEvent.value = sanitizeEvent(event)
+    clearAuthorEvent.value = sanitizeEvent(authorEvent)
+
     if (!props.authorEvent) return
     showAuthorTab.value = props.event.id !== props.authorEvent.id
   })
+
+  const sanitizeEvent = (event: Event) => {
+    const { id, pubkey, created_at, kind, tags, content, sig } = event
+    return { id, pubkey, created_at, kind, tags, content, sig }
+  }
 
   const handleRawDataTabClick = (tab: number) => {
     rawDataActiveTab.value = tab
@@ -29,10 +40,10 @@
       <span @click="() => handleRawDataTabClick(3)" :class="['event-details__tab', { 'event-details__tab_active': rawDataActiveTab === 3 }]">Author content</span>
     </div>
     <div v-if="rawDataActiveTab === 1">
-      <pre class="highlight">{{ JSON.stringify(event, null, 2) }}</pre>
+      <pre class="highlight">{{ JSON.stringify(clearEvent, null, 2) }}</pre>
     </div>
     <div v-if="showAuthorTab && rawDataActiveTab === 2">
-      <pre v-if="authorEvent" class="highlight">{{ JSON.stringify(authorEvent, null, 2) }}</pre>
+      <pre v-if="authorEvent" class="highlight">{{ JSON.stringify(clearAuthorEvent, null, 2) }}</pre>
       <div class="event-details__no-user" v-else>
         <div>No info about author on this relay.</div>
         <pre class="highlight">pubkey: {{ event.pubkey }} 
@@ -40,7 +51,7 @@ npub: {{ nip19.npubEncode(event.pubkey) }}</pre>
       </div>
     </div>
     <div v-if="rawDataActiveTab === 3">
-      <pre v-if="author" class="highlight">{{ JSON.stringify(author, null, 2) }}</pre>
+      <pre v-if="event.author" class="highlight">{{ JSON.stringify(event.author, null, 2) }}</pre>
       <div class="event-details__no-user" v-else>
         <div>No info about author on this relay.</div>
         <pre class="highlight">pubkey: {{ event.pubkey }}
