@@ -25,9 +25,12 @@ description: 'High-security, auditable set of contained cryptographic libraries 
       </li>
       <li><strong>hashes</strong> (<a href="https://github.com/paulmillr/noble-hashes">github</a>, <a href="https://www.npmjs.com/package/@noble/hashes">npm</a>): hash functions, MACs & KDFs, including SHA2, SHA3, RIPEMD, BLAKE2/3, HMAC, HKDF, PBKDF2 & Scrypt</li>
       <li>
-        4kb single-feature educational versions of <code>curves</code>:
+        4kb ossified versions of <em>curves</em>:
         secp256k1 (<a href="https://github.com/paulmillr/noble-secp256k1">github</a>, <a href="https://www.npmjs.com/package/@noble/secp256k1">npm</a>)
-        and ed25519 (<a href="https://github.com/paulmillr/noble-ed25519">github</a>, <a href="https://www.npmjs.com/package/@noble/ed25519">npm</a>)
+        and ed25519 (<a href="https://github.com/paulmillr/noble-ed25519">github</a>, <a href="https://www.npmjs.com/package/@noble/ed25519">npm</a>).
+        They have been created for two purposes:
+        1) to have even better auditability
+        2) to have rarer update schedule. Less updates = less need for audits
       </li>
     </ul>
 
@@ -44,7 +47,7 @@ description: 'High-security, auditable set of contained cryptographic libraries 
       <li>Feb 2022: ed25519 <a href="https://cure53.de/pentest-report_ed25519.pdf">audit</a> by Cure53 has been completed</li>
       <li>Dec 2022: <a href="https://github.com/paulmillr/noble-curves">curves</a> have been released, consolidating secp + ed + bls in one package</li>
       <li>Feb 2023: curves <a href="https://github.com/trailofbits/publications/blob/master/reviews/2023-01-ryanshea-noblecurveslibrary-securityreview.pdf">audit</a> by Trail of Bits has been completed, funded by <a href="https://www.shea.io">Ryan Shea</a></li>
-      <li>Mar 2023: <a href="https://github.com/paulmillr/noble-secp256k1/releases/tag/2.0.0">secp256k1</a> and <a href="https://github.com/paulmillr/noble-ed25519/releases/tag/2.0.0">ed25519</a> have been rewritten and became 4KB (gzipped) single-feature versions of curves</li>
+      <li>Mar 2023: <a href="https://github.com/paulmillr/noble-secp256k1/releases/tag/2.0.0">secp256k1</a> and <a href="https://github.com/paulmillr/noble-ed25519/releases/tag/2.0.0">ed25519</a> have been rewritten and became 4KB single-feature versions of <em>curves</em></li>
       <li>Jun 2023: <a href="https://github.com/paulmillr/noble-ciphers">ciphers</a> have been released</li>
     </ul>
 
