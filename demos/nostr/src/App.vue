@@ -14,7 +14,7 @@
   } from 'nostr-tools'
 
   import type { EventExtended, LogContentPart } from './types'
-  import { updateUrlHash } from './utils'
+  import { updateUrlHash, isWsAvailable, normalizeUrl } from './utils'
   import User from './components/User.vue'
   import RelayEventsList from './components/RelayEventsList.vue'
   import HeaderFields from './components/HeaderFields.vue'
@@ -71,6 +71,10 @@
   const wsError = ref('')
   const msgErr = ref('')
   const jsonErr = ref('')
+  const isSendingMessage = ref(false)
+
+  const additionalRelaysUrls = ref<string[]>([])
+  const additionalRelaysCount = ref(0) 
 
   // it's a counter to always trigger updating of Help component for scrolling to privacy section
   const showPrivacySection = ref(0)
@@ -331,7 +335,7 @@
     let relayUrl = selectedRelay.value
     let isCustom = false
     if (relayUrl === 'custom') {
-      relayUrl = customRelayUrl.value
+      relayUrl = normalizeUrl(customRelayUrl.value)
       isCustom = true
     }
 
@@ -390,8 +394,6 @@
         { type: 'bold', value: relay.url }
       ])
 
-      isConnectingToRelay.update(false)
-
       // hide new events element and clear it's values
       showNewEventsBadge.value = false
       newEvents.value = []
@@ -409,6 +411,7 @@
       events.value = posts as EventExtended[]
 
       connectedRelayUrl.update(isCustom ? 'custom' : relayUrl)
+      isConnectingToRelay.update(false)
 
       relaySub = relay.sub([{ kinds: [1], limit: 1 }])
       relaySub.on('event', (event: Event) => {
@@ -501,9 +504,8 @@
     }
 
     msgErr.value = ''
-    message.value = ''
 
-    await broadcastEvent(event)
+    await broadcastEvent(event, 'text')
   }
 
   const handleSendSignedEvent  = async () => {
@@ -520,11 +522,6 @@
       return;
     }
 
-    if (sentEventIds.has(event.id)) {
-      jsonErr.value = 'The same event can\'t be sent twice (same id, signature).'
-      return;
-    }
-
     const relay = currentRelay.value
     if (!relay || relay.status !== 1) {
       jsonErr.value = 'Please connect to relay first.'
@@ -532,19 +529,22 @@
     }
 
     jsonErr.value = ''
-    signedJson.value = ''
 
-    await broadcastEvent(event)
+    await broadcastEvent(event, 'json')
   }
 
-  const broadcastEvent = async (event: Event) => {
+  const broadcastEvent = async (event: Event, type: string) => {
     const relay = currentRelay.value
     if (!relay) return
+    if (isSendingMessage.value) return
+
+    isSendingMessage.value = true
     
     clearInterval(curInterval)
 
     const userNewEventOptions = [{ kinds: [1], authors: [pubKey.value], limit: 1 }]
     const userSub = relay.sub(userNewEventOptions)
+    const intervals: number[] = []
     userSub.on('event', (event: Event) => {
       // update feed only if new event is loaded
       // interval needed because of delay between publishing and loading new event
@@ -552,25 +552,63 @@
         if (newEvents.value.some(e => e.id == event.id)) {
           await loadNewRelayEvents()
           curInterval = setInterval(updateNewEventsElement, 3000)
-          clearInterval(interval)
           userSub.unsub()
+          intervals.forEach(i => clearInterval(i))
         }
       }, 100)
+      intervals.push(interval)
     })
 
-    const pub = relay.publish(event)
-    pub.on('ok', async () => {
+    const rawAdditionalUrls = additionalRelaysUrls.value
+    const extraUrls = []
+    if (type === 'json' && rawAdditionalUrls.length) {
+      let error = "Can't connect to these relays: "
+      let isError = false
+      for (const relayUrl of rawAdditionalUrls) {
+        if (!relayUrl?.length) continue
+        const url = normalizeUrl(relayUrl)
+        if (!await isWsAvailable(url)) {
+          isError = true
+          error += `${url}, `
+          continue
+        }
+        extraUrls.push(url)
+      }
+      if (isError) {
+        if (!await isWsAvailable(relay.url)) {
+          error += `${relay.url}, `
+        }
+        error = error.slice(0, -2);
+        error += `. Relays are unavailable or you are offline.`
+        jsonErr.value = error
+        isSendingMessage.value = false
+        return
+      }
+    }
+
+    const relayUrls = [relay.url, ...extraUrls]
+
+    const pool = new SimplePool({ getTimeout: 5600 })
+    const pub = pool.publish(relayUrls, event)
+    let successCount = 0
+    pub.on('ok', async function(relayUrl: string) {
+      isSendingMessage.value = false
       sentEventIds.add(event.id)
       logHtmlParts([
-        { type: 'text', value: 'new event broadcasted to ' },
-        { type: 'bold', value: relay.url }
+        { type: 'text', value: '✅ new event broadcasted to ' },
+        { type: 'bold', value: relayUrl }
       ])
+      successCount++
+      if (successCount === relayUrls.length) {
+        if (type === 'text') message.value = ''
+        if (type === 'json') signedJson.value = ''
+      }
     })
-    pub.on('failed', (reason: string) => {
+    pub.on('failed', (relayUrl: string) => {
+      isSendingMessage.value = false
       logHtmlParts([
-        { type: 'text', value: 'failed to publish to ' },
-        { type: 'bold', value: relay.url },
-        { type: 'text', value: `: ${reason}` }
+        { type: 'text', value: '❌ failed to publish to ' },
+        { type: 'bold', value: relayUrl }
       ])
     })
   }
@@ -598,6 +636,10 @@
     if (event) {
       event.showRawData = !event.showRawData
     }
+  }
+
+  const handleClickAddNewField = () => {
+    additionalRelaysCount.value++
   }
 </script>
 
@@ -635,8 +677,19 @@
           <strong>Message to broadcast</strong>
         </label>
         <div class="field-elements">
-          <input v-model="message" class="message-input" id="message" type="text" placeholder="Test message 👋" />
-          <button class="send-btn" @click="handleSendMessage">Broadcast</button>
+          <textarea
+            class="message-input"
+            name="message"
+            id="message"
+            cols="30"
+            rows="3"
+            v-model="message"
+            placeholder='Test message 👋'></textarea>
+        </div>
+        <div class="send-btn-wrapper">
+          <button class="send-btn" @click="handleSendMessage">
+            {{ isSendingMessage ? 'Broadcasting...' : 'Broadcast' }}
+          </button>
         </div>
       </div>
     </div>
@@ -647,10 +700,38 @@
 
   <!-- Signed event -->
   <div v-if="currentTab.value === 'message'" class="message-fields-wrapper">
-    <p class="signed-message-desc">
-      Event should be signed with your private key in advance. Event will be broadcasted to a selected relay.
-      More details about events and signatures are <a target="_blank" href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">here</a>.
-    </p>
+    <div class="signed-message-desc">
+      <p class="signed-message-desc_p">
+        Event should be signed with your private key in advance. Event will be broadcasted to a selected relay.
+        More details about events and signatures are <a target="_blank" href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">here</a>.
+      </p>
+      <p class="signed-message-desc_p">
+        Event will be broadcasted to a selected relay. 
+        You can add more relays to retransmit the event.
+        <br>
+  
+        <button class="additional-relay-btn" @click="handleClickAddNewField">
+          Add relay
+        </button>
+
+        <div v-if="additionalRelaysCount > 0" class="additional-relays">
+          <div class="additional-relay-field">
+            <span>1.</span>
+            <input 
+              readonly 
+              :value="currentRelay?.url ? `${currentRelay?.url} (already selected)` : 'Firstly connect to default relay'" 
+              type="text"
+            >
+          </div>
+          <div v-for="i in additionalRelaysCount">
+            <div class="additional-relay-field">
+              <span>{{ i + 1 }}.</span>
+              <input v-model="additionalRelaysUrls[i]" placeholder="[wss://]relay.example.com" type="text">
+            </div>
+          </div>
+        </div>
+      </p>
+    </div> 
 
     <div class="message-fields__field_sig">
       <label class="message-fields__label" for="signed_json">
@@ -671,7 +752,9 @@
       <div class="error">
         {{ jsonErr }}
       </div>
-      <button class="send-btn send-btn_signed-json" @click="handleSendSignedEvent">Broadcast</button>
+      <button class="send-btn send-btn_signed-json" @click="handleSendSignedEvent">
+        {{ isSendingMessage ? 'Broadcasting...' : 'Broadcast' }}
+      </button>
     </div>
   </div>
 
@@ -725,6 +808,24 @@
 </template>
 
 <style scoped>
+  .additional-relays {
+    margin-top: 5px;    
+  }
+  .additional-relay-field {
+    display: flex;
+    align-items: center;
+  }
+
+  .additional-relay-field input {
+    width: 100%; 
+    box-sizing: border-box;
+    margin-left: 5px;
+  }
+
+  .additional-relay-btn {
+    cursor: pointer;
+  }
+
   .message-fields__label {
     display: flex;
     align-items: center;
@@ -882,14 +983,18 @@
   .message-input {
     font-size: 16px;
     padding: 1px 3px;
-    flex-grow: 1;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   @media (min-width: 768px) {
     .message-input {
       font-size: 15px;
-      margin-right: 5px;
     }
+  }
+
+  .send-btn-wrapper {
+    text-align: right;
   }
 
   .send-btn {
@@ -905,8 +1010,7 @@
 
   @media (min-width: 768px) {
     .send-btn {
-      width: 80px;
-      margin-top: 0;
+      width: auto;
     }
   }
 
@@ -924,6 +1028,11 @@
 
   .signed-message-desc {
     margin-bottom: 15px;
+  }
+
+  .signed-message-desc_p {
+    margin-top: 15px;
+    margin-bottom: 0;
   }
 
   .signed-json-btn-wrapper {

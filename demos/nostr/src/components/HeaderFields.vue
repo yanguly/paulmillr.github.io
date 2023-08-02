@@ -92,7 +92,7 @@
             <button v-if="showConnectBtn" @click="handleRelayConnect" class="select-relay__btn">
               {{ isConnectingToRelay.value ? 'Connecting...' : 'Connect' }}
             </button>
-            <button v-if="!showConnectBtn" @click="handleRelayDisconnect" class="select-relay__btn">
+            <button v-else @click="handleRelayDisconnect" class="select-relay__btn">
               Disconnect
             </button>
           </div>
@@ -129,7 +129,13 @@
       <strong>Relay URL</strong>
     </label>
     <div class="field-elements">
-      <input v-model="customRelayUrl.value" class="relay-input" id="relay_url" type="text" placeholder="wss://realay.example.com" />
+      <input 
+        v-model="customRelayUrl.value" 
+        class="relay-input" 
+        id="relay_url" 
+        type="text" 
+        placeholder="[wss://]relay.example.com" 
+      />
     </div>
   </div>
 </template>

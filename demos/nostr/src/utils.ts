@@ -13,6 +13,14 @@ export const updateUrlUser = (npub: string) => {
   window.location.hash = `#?user=${npub}`
 }
 
+export const normalizeUrl = (url: string) => {
+  const norm = url.trim()
+  if (!norm.startsWith('ws://') && !norm.startsWith('wss://')) {
+    return `wss://${norm}`
+  }
+  return norm
+}
+
 export const injectAuthorsToNotes = async (postsEvents: Event[], authorsEvents: Event[]) => {
   const tempPostsEvents = [...postsEvents] as EventExtended[]
 
@@ -132,4 +140,24 @@ export const isLike = (content: string) => {
     return false
   }
   return true
+}
+
+export const isWsAvailable = (url: string) => {
+  try {
+    const socket = new WebSocket(url);
+    return new Promise((resolve) => {
+      socket.onopen = () => {
+        socket.close();
+        resolve(true);
+      };
+
+      socket.onerror = () => {
+        socket.close();
+        resolve(false);
+      };
+    });
+  } catch (error) {
+    // An error occurred while creating the WebSocket object (e.g., invalid URL)
+    return Promise.resolve(false);
+  }
 }
