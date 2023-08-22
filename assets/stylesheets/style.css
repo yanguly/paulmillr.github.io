@@ -205,7 +205,7 @@ header > .cell > p {
   float: left;
   width: 980px;
   margin: 0 10px 10px 0;
-  line-height: 1.45;
+  line-height: 1.35;
 }
 .half-cell,
 .header-cell {
@@ -259,7 +259,7 @@ header > .cell > p {
   list-style: none;
 }
 .post p {
-  margin-bottom: 30px;
+  margin-bottom: 15px;
 }
 .post p:last-child {
   margin-bottom: 0;
